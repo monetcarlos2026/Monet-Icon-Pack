@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +56,20 @@ fun LiquidGlassBottomBar(
 
     var barPos by remember { mutableStateOf(Offset.Zero) }
 
+    // Stable providers — the component uses selectedTabIndex/onTabSelected as
+    // remember()/LaunchedEffect keys, so they MUST be stable instances. Passing a
+    // fresh lambda that captures the (unstable) tabs list each recomposition reset
+    // the internal animation state every frame -> jumpy "ghosting" and the pill not
+    // following the finger.
+    val selectedIndex = tabs.indexOfFirst { it.menuId == selectedId }.coerceAtLeast(0)
+    val selectedIndexState = rememberUpdatedState(selectedIndex)
+    val tabsState = rememberUpdatedState(tabs)
+    val onSelectState = rememberUpdatedState(onSelect)
+    val selectedTabIndexProvider = remember { { selectedIndexState.value } }
+    val onTabSelectedCb: (Int) -> Unit = remember {
+        { idx -> tabsState.value.getOrNull(idx)?.let { onSelectState.value(it.menuId) } }
+    }
+
     val backdrop = rememberCanvasBackdrop {
         val img = backdropState.image
         if (img != null) {
@@ -72,10 +87,8 @@ fun LiquidGlassBottomBar(
         contentAlignment = Alignment.Center
     ) {
         LiquidBottomTabs(
-            selectedTabIndex = {
-                tabs.indexOfFirst { it.menuId == selectedId }.coerceAtLeast(0)
-            },
-            onTabSelected = { idx -> tabs.getOrNull(idx)?.let { onSelect(it.menuId) } },
+            selectedTabIndex = selectedTabIndexProvider,
+            onTabSelected = onTabSelectedCb,
             backdrop = backdrop,
             tabsCount = tabs.size,
             modifier = Modifier
