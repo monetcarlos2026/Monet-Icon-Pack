@@ -65,7 +65,7 @@ fun LiquidBottomTabs(
     tabsCount: Int,
     modifier: Modifier = Modifier,
     onInteraction: () -> Unit = {},
-    content: @Composable RowScope.() -> Unit
+    content: @Composable RowScope.(hiddenIndex: Int?) -> Unit
 ) {
     val isLightTheme = !isSystemInDarkTheme()
     val accentColor =
@@ -138,6 +138,7 @@ fun LiquidBottomTabs(
             snapshotFlow { selectedTabIndex() }
                 .collectLatest { index ->
                     currentIndex = index
+                    dampedDragAnimation.animateToValue(index.toFloat())
                 }
         }
         LaunchedEffect(dampedDragAnimation) {
@@ -161,6 +162,13 @@ fun LiquidBottomTabs(
                     )
                 }
             )
+        }
+        val visualIndex by remember {
+            derivedStateOf {
+                dampedDragAnimation.value
+                    .fastRoundToInt()
+                    .fastCoerceIn(0, tabsCount - 1)
+            }
         }
 
         Row(
@@ -189,8 +197,9 @@ fun LiquidBottomTabs(
                 .fillMaxWidth()
                 .padding(4f.dp),
             verticalAlignment = Alignment.CenterVertically,
-            content = content
-        )
+        ) {
+            content(visualIndex)
+        }
 
         CompositionLocalProvider(
             LocalLiquidBottomTabScale provides {
@@ -229,8 +238,9 @@ fun LiquidBottomTabs(
                     .padding(horizontal = 4f.dp)
                     .tintLayer(accentColor),
                 verticalAlignment = Alignment.CenterVertically,
-                content = content
-            )
+            ) {
+                content(null)
+            }
         }
 
         Box(
@@ -248,25 +258,26 @@ fun LiquidBottomTabs(
                     shape = { Capsule() },
                     effects = {
                         val progress = dampedDragAnimation.pressProgress
+                        val lensProgress = lerp(0.55f, 1f, progress)
                         lens(
-                            10f.dp.toPx() * progress,
-                            14f.dp.toPx() * progress,
+                            14f.dp.toPx() * lensProgress,
+                            18f.dp.toPx() * lensProgress,
                             chromaticAberration = true
                         )
                     },
                     highlight = {
                         val progress = dampedDragAnimation.pressProgress
-                        Highlight.Default.copy(alpha = progress)
+                        Highlight.Default.copy(alpha = lerp(0.18f, 1f, progress))
                     },
                     shadow = {
                         val progress = dampedDragAnimation.pressProgress
-                        Shadow(alpha = progress)
+                        Shadow(alpha = lerp(0.08f, 1f, progress))
                     },
                     innerShadow = {
                         val progress = dampedDragAnimation.pressProgress
                         InnerShadow(
-                            radius = 8f.dp * progress,
-                            alpha = progress
+                            radius = 8f.dp * lerp(0.35f, 1f, progress),
+                            alpha = lerp(0.16f, 1f, progress)
                         )
                     },
                     layerBlock = {

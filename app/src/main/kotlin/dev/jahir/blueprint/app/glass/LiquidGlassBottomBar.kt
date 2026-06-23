@@ -112,9 +112,12 @@ fun LiquidGlassBottomBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .onGloballyPositioned { barPos = it.positionInWindow() }
-        ) {
-            tabs.forEach { tab ->
-                LiquidBottomTab(onClick = { onSelect(tab.menuId) }) {
+        ) { hiddenIndex ->
+            tabs.forEachIndexed { index, tab ->
+                LiquidBottomTab(
+                    onClick = { onSelect(tab.menuId) },
+                    visible = hiddenIndex != index
+                ) {
                     androidx.compose.foundation.Image(
                         painter = painterResource(tab.iconRes),
                         contentDescription = tab.label,

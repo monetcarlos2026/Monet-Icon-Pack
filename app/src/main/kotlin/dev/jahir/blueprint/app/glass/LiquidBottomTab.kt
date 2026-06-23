@@ -6,11 +6,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -23,10 +25,11 @@ internal val LocalLiquidBottomTabScale =
 fun RowScope.LiquidBottomTab(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    visible: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val scale = LocalLiquidBottomTabScale.current
-    Column(
+    Box(
         modifier
             .clip(Capsule())
             .clickable(
@@ -42,8 +45,13 @@ fun RowScope.LiquidBottomTab(
                 scaleX = s
                 scaleY = s
             },
-        verticalArrangement = Arrangement.spacedBy(2f.dp, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        content = content
-    )
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            Modifier.alpha(if (visible) 1f else 0f),
+            verticalArrangement = Arrangement.spacedBy(2f.dp, Alignment.CenterVertically),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            content = content
+        )
+    }
 }
