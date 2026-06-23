@@ -4,11 +4,9 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.os.SystemClock
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.view.ViewTreeObserver
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.platform.ComposeView
 import androidx.coordinatorlayout.widget.CoordinatorLayout
@@ -74,8 +72,6 @@ class MainActivity : BottomNavigationBlueprintActivity() {
     private var fragmentsContainer: View? = null
     private var glassInstalled = false
 
-    private var lastCaptureAt = 0L
-
     private fun resId(name: String, type: String): Int =
         resources.getIdentifier(name, type, packageName)
 
@@ -132,9 +128,10 @@ class MainActivity : BottomNavigationBlueprintActivity() {
         }
         root.addView(composeView)
 
-        // Capture the content behind the bar whenever it scrolls (throttled).
-        root.viewTreeObserver.addOnScrollChangedListener(scrollListener)
-        root.post { captureBackdrop() }
+        // Snapshot the content behind the bar once it's laid out. We deliberately do
+        // NOT re-capture on every scroll frame (that software-rendered the whole page
+        // each frame and caused the jank); we refresh only on navigation / resume.
+        scheduleCaptures()
     }
 
     private fun onGlassTabSelected(menuId: Int) {
@@ -147,24 +144,13 @@ class MainActivity : BottomNavigationBlueprintActivity() {
         scheduleCaptures()
     }
 
-    private val scrollListener = ViewTreeObserver.OnScrollChangedListener {
-        val now = SystemClock.uptimeMillis()
-        if (now - lastCaptureAt >= 64L) {
-            lastCaptureAt = now
-            captureBackdrop()
-        }
-        handler.removeCallbacks(trailingCapture)
-        handler.postDelayed(trailingCapture, 110L)
-    }
-
-    private val trailingCapture = Runnable { captureBackdrop() }
-
     private fun captureBackdrop() {
         fragmentsContainer?.let { backdropState.capture(it) }
     }
 
     private fun scheduleCaptures() {
-        for (delay in longArrayOf(90L, 220L, 420L)) {
+        captureBackdrop()
+        for (delay in longArrayOf(120L, 320L, 600L)) {
             handler.postDelayed({ captureBackdrop() }, delay)
         }
     }
@@ -180,7 +166,6 @@ class MainActivity : BottomNavigationBlueprintActivity() {
     }
 
     override fun onDestroy() {
-        rootView?.viewTreeObserver?.removeOnScrollChangedListener(scrollListener)
         handler.removeCallbacksAndMessages(null)
         super.onDestroy()
     }
