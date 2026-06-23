@@ -1,32 +1,13 @@
 <img src="https://github.com/jahirfiquitiva/Blueprint/raw/master/art/app_logo.png" width="192" align="right" hspace="20" />
 
-Blueprint
+Monet Icon Pack
 ======
 
 ![API](https://img.shields.io/badge/API-21%2B-34bf49.svg)
-[![GitHub Release](https://img.shields.io/github/v/release/jahirfiquitiva/Blueprint?label=Blueprint&sort=semver)](https://github.com/jahirfiquitiva/Blueprint/releases/latest)
-[![Build Status](https://github.com/jahirfiquitiva/Blueprint/actions/workflows/build.yml/badge.svg?branch=sample)](https://github.com/jahirfiquitiva/Blueprint/actions/workflows/build.yml)
-[![Crowdin](https://badges.crowdin.net/blueprint/localized.svg)](https://crowdin.com/project/blueprint/invite)
-[![GitHub Sponsor](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=ff69b4)](https://github.com/sponsors/jahirfiquitiva)
+[![GitHub Release](https://img.shields.io/github/v/release/monetcarlos2026/monet-icon-pack?label=monet-icon-pack&sort=semver)](https://github.com/monetcarlos2026/monet-icon-pack/releases/latest)
+[![GitHub Sponsor](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=ff69b4)](https://github.com/sponsors/monetcarlos2026)
 
 Free, feature-rich, easily customizable Android dashboard for icon packs
-
-<a target="_blank" href="http://bit.ly/DLBlueprintAPK">
-<img src="https://jahir.dev/share/download_sample.svg?maxAge=432000" width="200"/>
-</a>
-
-<a target="_blank" href="https://jahir.dev/donate/">
-<img src="https://jahir.dev/share/support_my_work.svg?maxAge=432000" width="200"/>
-</a>
-
-
-## Show some  :blue_heart:
-[![GitHub stars](https://img.shields.io/github/stars/jahirfiquitiva/Blueprint.svg?style=social&label=Star)](https://github.com/jahirfiquitiva/Blueprint)
-[![GitHub forks](https://img.shields.io/github/forks/jahirfiquitiva/Blueprint.svg?style=social&label=Fork)](https://github.com/jahirfiquitiva/Blueprint/fork)
-[![GitHub watchers](https://img.shields.io/github/watchers/jahirfiquitiva/Blueprint.svg?style=social&label=Watch)](https://github.com/jahirfiquitiva/Blueprint)
-
-[![Follow on GitHub](https://img.shields.io/github/followers/jahirfiquitiva.svg?style=social&label=Follow)](https://github.com/jahirfiquitiva)
-[![Twitter Follow](https://img.shields.io/twitter/follow/jahirfiquitiva.svg?style=social)](https://twitter.com/jahirfiquitiva)
 
 ---
 
@@ -61,7 +42,6 @@ Free, feature-rich, easily customizable Android dashboard for icon packs
 # Features:
 - Material Design dashboard.
 - License Checker.
-- Donations.
 - OneSignal notifications ready.
 - Support for adaptive icon packs (Additional improvements coming soon!)
 - In-app icon request tool
@@ -82,11 +62,8 @@ Free, feature-rich, easily customizable Android dashboard for icon packs
 - Lots of customizations.
 - Works with Android 5.0 and newer.
 
-## Help translating
-:page_facing_up: Help making Blueprint available in more languages. [Click here to go to the translation site](https://crowdin.com/project/Blueprint/invite)
-
 ## Changelog
-:radio_button: You can find it in the [Releases page](https://github.com/jahirfiquitiva/Blueprint/releases)
+:radio_button: You can find it in the [Releases page](https://github.com/monetcarlos2026/monet-icon-pack/releases)
 
 ---
 
@@ -148,7 +125,7 @@ If you found this app/library helpful and want to thank me, you can:
 **Thanks in advance!** :pray:
 
 ## Special thanks 🙌
-
+- [MonetCarlos](https://github.com/monetcarlos2026/) 🎨 💻
 - [Eduardo Pratti](https://pratti.design/) 🎨
 - [Sherry Sabatine](https://www.photography-by-sherry.com/) 💵
 - [Allan Wang](https://www.allanwang.ca/) 💻
