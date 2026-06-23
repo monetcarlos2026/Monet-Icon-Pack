@@ -6,6 +6,8 @@
         <item name="bottomNavigationStyle">@style/MyApp.BottomNavigationView.MaterialYou</item>
         <item name="customFontBold">@font/manrope_bold_fam</item>
         <item name="customFontNormal">@font/manrope_normal_fam</item>
+        <item name="android:statusBarColor">@color/m3_primary</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 
     <!-- Don't change the parent style -->
@@ -13,6 +15,8 @@
         <item name="bottomNavigationStyle">@style/MyApp.BottomNavigationView.MaterialYou</item>
         <item name="customFontBold">@font/manrope_bold_fam</item>
         <item name="customFontNormal">@font/manrope_normal_fam</item>
+        <item name="android:statusBarColor">@color/m3_darkThemePrimary</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 
     <!-- Don't change the parent style -->

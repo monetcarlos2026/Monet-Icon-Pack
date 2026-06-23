@@ -102,11 +102,18 @@ class MainActivity : BottomNavigationBlueprintActivity() {
         super.onCreate(savedInstanceState)
         syncStatusBarWithToolbar()
         installLiquidGlass()
+        window.decorView.post { syncStatusBarWithToolbar() }
     }
 
     private fun syncStatusBarWithToolbar() {
-        window.statusBarColor = ContextCompat.getColor(this, R.color.primary)
-        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
+        val isDark = resources.configuration.uiMode and
+            android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
+        window.statusBarColor = ContextCompat.getColor(
+            this,
+            if (isDark) R.color.darkThemePrimary else R.color.primary
+        )
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = !isDark
     }
 
     private fun installLiquidGlass() {
@@ -224,6 +231,8 @@ class MainActivity : BottomNavigationBlueprintActivity() {
 
     override fun onResume() {
         super.onResume()
+        syncStatusBarWithToolbar()
+        window.decorView.post { syncStatusBarWithToolbar() }
         // Keep the stock bar hidden and the selection mirror in sync.
         bottomNav?.let {
             it.visibility = View.INVISIBLE

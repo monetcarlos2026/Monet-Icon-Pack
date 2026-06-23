@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Light Theme Colors -->
-    <color name="m3_primary">@android:color/system_neutral1_10</color>
-    <color name="m3_primaryDark">@android:color/system_neutral1_10</color>
+    <color name="m3_primary">#ffffff</color>
+    <color name="m3_primaryDark">#ffffff</color>
     <color name="m3_onPrimary">@android:color/system_neutral1_900</color>
 
     <color name="m3_accent">@android:color/system_accent1_600</color>
@@ -12,7 +12,7 @@
     <color name="m3_onSurface">@android:color/system_neutral2_900</color>
     <color name="m3_onSurfaceVariant">@android:color/system_neutral2_700</color>
 
-    <color name="m3_background">@android:color/system_neutral1_10</color>
+    <color name="m3_background">#fafafa</color>
     <color name="m3_onBackground">@android:color/system_neutral1_900</color>
 
     <color name="m3_snackbarBackgroundColor">@android:color/system_neutral2_800</color>

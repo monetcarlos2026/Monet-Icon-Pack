@@ -24,6 +24,8 @@
         <item name="bottomNavigationStyle">@style/MyApp.BottomNavigationView</item>
         <item name="customFontBold">@font/manrope_bold_fam</item>
         <item name="customFontNormal">@font/manrope_normal_fam</item>
+        <item name="android:statusBarColor">@color/primary</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 
     <!-- Don't change the parent style -->
@@ -31,6 +33,8 @@
         <item name="bottomNavigationStyle">@style/MyApp.BottomNavigationView</item>
         <item name="customFontBold">@font/manrope_bold_fam</item>
         <item name="customFontNormal">@font/manrope_normal_fam</item>
+        <item name="android:statusBarColor">@color/darkThemePrimary</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 
     <!-- Don't change the parent style -->

@@ -2,7 +2,7 @@
 <resources>
     <!-- Light Theme Colors -->
     <color name="primary">#ffffff</color>
-    <color name="primaryDark">#fafafa</color>
+    <color name="primaryDark">#ffffff</color>
     <color name="onPrimary">#de000000</color>
 
     <color name="accent">#3881fa</color>
