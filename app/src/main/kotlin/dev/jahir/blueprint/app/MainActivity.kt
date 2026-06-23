@@ -9,9 +9,13 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
+import android.widget.ScrollView
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.platform.ComposeView
 import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.core.view.children
+import androidx.core.widget.NestedScrollView
+import androidx.recyclerview.widget.RecyclerView
 import com.github.javiersantos.piracychecker.PiracyChecker
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import dev.jahir.blueprint.app.glass.GlassBackdropState
@@ -148,6 +152,7 @@ class MainActivity : BottomNavigationBlueprintActivity() {
 
         root.viewTreeObserver.addOnScrollChangedListener(scrollListener)
         scheduleCaptures()
+        handler.post { applyBottomContentInset(root) }
     }
 
     private fun onGlassTabSelected(menuId: Int) {
@@ -176,6 +181,37 @@ class MainActivity : BottomNavigationBlueprintActivity() {
         for (delay in longArrayOf(16L, 32L, 48L, 80L, 120L, 180L, 240L)) {
             handler.postDelayed({ captureBackdrop() }, delay)
         }
+    }
+
+    private fun applyBottomContentInset(root: ViewGroup) {
+        val extraBottom = (128f * resources.displayMetrics.density).toInt()
+        root.findScrollableViews().forEach { view ->
+            if (view.tag == "liquid_inset_applied") return@forEach
+            view.tag = "liquid_inset_applied"
+            view.setPadding(
+                view.paddingLeft,
+                view.paddingTop,
+                view.paddingRight,
+                view.paddingBottom + extraBottom
+            )
+            if (view is RecyclerView) {
+                view.clipToPadding = false
+            }
+        }
+    }
+
+    private fun View.findScrollableViews(): List<View> {
+        val result = mutableListOf<View>()
+        fun visit(view: View) {
+            if (view is RecyclerView || view is NestedScrollView || view is ScrollView) {
+                result += view
+            }
+            if (view is ViewGroup) {
+                view.children.forEach { visit(it) }
+            }
+        }
+        visit(this)
+        return result
     }
 
     override fun onResume() {

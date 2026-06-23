@@ -72,8 +72,11 @@ fun LiquidBottomTabs(
         if (isLightTheme) Color(0xFF0088FF)
         else Color(0xFF0091FF)
     val containerColor =
-        if (isLightTheme) Color(0xFFFAFAFA).copy(0.58f)
-        else Color(0xFF121212).copy(0.52f)
+        if (isLightTheme) Color(0xFFFAFAFA).copy(0.76f)
+        else Color(0xFF121212).copy(0.64f)
+    val selectedGlassColor =
+        if (isLightTheme) Color.White.copy(0.42f)
+        else Color.White.copy(0.14f)
 
     val tabsBackdrop = rememberLayerBackdrop()
 
@@ -181,7 +184,7 @@ fun LiquidBottomTabs(
                     shape = { Capsule() },
                     effects = {
                         vibrancy()
-                        blur(18f.dp.toPx())
+                        blur(28f.dp.toPx())
                         lens(24f.dp.toPx(), 24f.dp.toPx())
                     },
                     layerBlock = {
@@ -220,7 +223,7 @@ fun LiquidBottomTabs(
                         effects = {
                             val progress = dampedDragAnimation.pressProgress
                             vibrancy()
-                            blur(14f.dp.toPx())
+                            blur(24f.dp.toPx())
                             lens(
                                 24f.dp.toPx() * progress,
                                 24f.dp.toPx() * progress
@@ -289,12 +292,12 @@ fun LiquidBottomTabs(
                     },
                     onDrawSurface = {
                         val progress = dampedDragAnimation.pressProgress
+                        drawRect(selectedGlassColor)
                         drawRect(
-                            if (isLightTheme) Color.Black.copy(0.1f)
-                            else Color.White.copy(0.1f),
-                            alpha = 1f - progress
+                            if (isLightTheme) Color.White.copy(0.22f)
+                            else Color.Black.copy(0.12f),
+                            alpha = progress
                         )
-                        drawRect(Color.Black.copy(alpha = 0.03f * progress))
                     }
                 )
                 .height(56f.dp)
