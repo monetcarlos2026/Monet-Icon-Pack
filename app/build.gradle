@@ -2,6 +2,7 @@ apply plugin: 'com.android.application'
 apply plugin: 'org.jetbrains.kotlin.android'
 apply plugin: 'kotlin-parcelize'
 apply plugin: 'com.google.devtools.ksp'
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 
 // Release signing credentials are read from a gitignored keystore.properties
 // at the repo root, so secrets stay out of version control.
@@ -99,6 +100,7 @@ android {
 
     buildFeatures {
         buildConfig = true
+        compose = true
     }
 }
 
@@ -108,4 +110,11 @@ dependencies {
     }
     // TODO: Remove comment marks to enable
     // implementation Libs.oneSignal
+
+    // Jetpack Compose (View interop via ComposeView) + Liquid Glass bottom bar
+    implementation "androidx.compose.runtime:runtime:$Versions.composeUi"
+    implementation "androidx.compose.ui:ui:$Versions.composeUi"
+    implementation "androidx.compose.ui:ui-graphics:$Versions.composeUi"
+    implementation "androidx.compose.foundation:foundation:$Versions.composeUi"
+    implementation "io.github.kyant0:backdrop:$Versions.backdrop"
 }

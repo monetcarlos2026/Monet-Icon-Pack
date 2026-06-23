@@ -99,3 +99,6 @@ app/release
 keystore.properties
 *.jks
 *.keystore
+
+# Kotlin compiler session dir
+.kotlin/

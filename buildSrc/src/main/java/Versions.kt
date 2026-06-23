@@ -16,4 +16,10 @@ object Versions {
 
     // Blueprint
     const val blueprint = "2.5.1"
+
+    // Jetpack Compose + Liquid Glass (kyant0 Backdrop)
+    // backdrop 1.0.2 is the newest release compiled with Kotlin 2.2.21 (matches this
+    // project) and targets androidx.compose 1.10.0; newer backdrop releases need Kotlin 2.3.
+    const val composeUi = "1.10.0"
+    const val backdrop = "1.0.2"
 }

@@ -10,4 +10,8 @@ object Plugins {
     // KSP
     const val ksp =
         "com.google.devtools.ksp:com.google.devtools.ksp.gradle.plugin:${Versions.ksp}"
+
+    // Compose compiler plugin (versioned with Kotlin since 2.0)
+    const val composeCompiler =
+        "org.jetbrains.kotlin:compose-compiler-gradle-plugin:${Versions.kotlin}"
 }
