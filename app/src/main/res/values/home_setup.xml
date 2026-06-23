@@ -37,8 +37,16 @@
     <string name="quick_apply_custom_text"></string>
 
     <!-- These arrays are for the list of apps or links in main section. -->
-    <string-array name="home_list_titles" />
-    <string-array name="home_list_descriptions" />
-    <string-array name="home_list_icons" />
-    <string-array name="home_list_links" />
+    <string-array name="home_list_titles">
+        <item>Help</item>
+    </string-array>
+    <string-array name="home_list_descriptions">
+        <item>Click to learn more</item>
+    </string-array>
+    <string-array name="home_list_icons">
+        <item>ic_na_launcher</item>
+    </string-array>
+    <string-array name="home_list_links">
+        <item>https://my.feishu.cn/wiki/WD0lwmNvKizS5pk0PPPcQg4Onkd</item>
+    </string-array>
 </resources>
