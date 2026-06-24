@@ -9,7 +9,7 @@ Monet Icon Pack
 
 Free, feature-rich, easily customizable Android dashboard for icon packs
 
-The LiquidGlass bottom bar was compiled by MonetCarlos for this software
+The LiquidGlass bottom bar was compiled by MonetCarlos & Xavierrr for this software
 
 ---
 
@@ -19,7 +19,7 @@ The LiquidGlass bottom bar was compiled by MonetCarlos for this software
 <p align="center">
 <img src="https://github.com/monetcarlos2026/monet-icon-pack/blob/main/monet/1.jpg?maxAge=0" height="350"/>
 <img src="https://github.com/monetcarlos2026/monet-icon-pack/blob/main/monet/2.jpg?maxAge=0" height="350"/>
-<img src="https://github.com/monetcarlos2026/monet-icon-pack/blob/main/monet/3.jpg?maxAge=0" height="350"/>
+<img src="https://github.com/monetcarlos2026/monet-icon-pack/blob/main/monet/3.png?maxAge=0" height="350"/>
 <img src="https://github.com/monetcarlos2026/monet-icon-pack/blob/main/monet/4.jpg?maxAge=0" height="350"/>
 </p>
 
@@ -81,6 +81,7 @@ where `{latest version}` corresponds to published version in   [![GitHub Release
 
 ## Special thanks 🙌
 - [MonetCarlos](https://github.com/monetcarlos2026/) 🎨 💻
+- [Xavierrr](https://github.com/Xavier-nai/) 🎨 💻
 - [Kyrant0](https://github.com/Kyant0/AndroidLiquidGlass/) 💻
 - [Eduardo Pratti](https://pratti.design/) 🎨
 - [Sherry Sabatine](https://www.photography-by-sherry.com/) 💵
