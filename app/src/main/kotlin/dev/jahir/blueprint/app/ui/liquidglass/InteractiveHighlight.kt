@@ -1,4 +1,4 @@
-package dev.jahir.blueprint.app.glass
+package dev.jahir.blueprint.app.ui.liquidglass
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.VectorConverter
@@ -14,15 +14,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
-/**
- * Ported from com.kyant.backdrop.catalog.utils (Kyant0/AndroidLiquidGlass).
- * The original uses an AGSL RuntimeShader for a radial press glow, but the runtime
- * shader helpers are not public in backdrop 1.0.2, so we keep only the simple
- * additive-white highlight fallback.
- */
-class InteractiveHighlight(
-    val animationScope: CoroutineScope,
-    val position: (size: Size, offset: Offset) -> Offset = { _, offset -> offset }
+internal class InteractiveHighlight(
+    private val animationScope: CoroutineScope,
+    private val position: (size: Size, offset: Offset) -> Offset = { _, offset -> offset }
 ) {
 
     private val pressProgressAnimationSpec =
@@ -36,18 +30,17 @@ class InteractiveHighlight(
         Animatable(Offset.Zero, Offset.VectorConverter, Offset.VisibilityThreshold)
 
     private var startPosition = Offset.Zero
-    val pressProgress: Float get() = pressProgressAnimation.value
-    val offset: Offset get() = positionAnimation.value - startPosition
 
     val modifier: Modifier =
         Modifier.drawWithContent {
             val progress = pressProgressAnimation.value
             if (progress > 0f) {
                 drawRect(
-                    Color.White.copy(0.22f * progress),
+                    Color.White.copy(0.25f * progress),
                     blendMode = BlendMode.Plus
                 )
             }
+
             drawContent()
         }
 

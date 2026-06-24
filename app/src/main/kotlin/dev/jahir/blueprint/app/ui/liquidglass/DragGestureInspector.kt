@@ -1,4 +1,4 @@
-package dev.jahir.blueprint.app.glass
+package dev.jahir.blueprint.app.ui.liquidglass
 
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -12,18 +12,17 @@ import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.util.fastFirstOrNull
 
-// Ported verbatim from com.kyant.backdrop.catalog.utils (Kyant0/AndroidLiquidGlass).
-suspend fun PointerInputScope.inspectDragGestures(
+internal suspend fun PointerInputScope.inspectDragGestures(
     onDragStart: (down: PointerInputChange) -> Unit = {},
     onDragEnd: (change: PointerInputChange) -> Unit = {},
     onDragCancel: () -> Unit = {},
     onDrag: (change: PointerInputChange, dragAmount: Offset) -> Unit
 ) {
     awaitEachGesture {
-        awaitFirstDown(false, PointerEventPass.Initial)
+        val initialDown = awaitFirstDown(false, PointerEventPass.Initial)
 
         val down = awaitFirstDown(false)
-        val drag = down
+        val drag = initialDown
 
         onDragStart(down)
         onDrag(drag, Offset.Zero)

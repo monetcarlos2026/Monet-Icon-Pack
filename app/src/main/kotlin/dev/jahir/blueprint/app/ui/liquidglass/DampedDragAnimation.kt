@@ -1,4 +1,4 @@
-package dev.jahir.blueprint.app.glass
+package dev.jahir.blueprint.app.ui.liquidglass
 
 import android.os.SystemClock
 import androidx.compose.animation.core.Animatable
@@ -17,19 +17,16 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
-// Ported from com.kyant.backdrop.catalog.utils (Kyant0/AndroidLiquidGlass).
-// kotlin.time.Clock -> android.os.SystemClock; awaitFrame() -> withFrameNanos {}.
-class DampedDragAnimation(
+internal class DampedDragAnimation(
     private val animationScope: CoroutineScope,
-    val initialValue: Float,
-    val valueRange: ClosedRange<Float>,
-    val visibilityThreshold: Float,
-    val initialScale: Float,
-    val pressedScale: Float,
-    val onDragStarted: DampedDragAnimation.(position: Offset) -> Unit,
-    val onDragStopped: DampedDragAnimation.() -> Unit,
-    val onPress: DampedDragAnimation.(position: Offset, size: IntSize) -> Unit = { _, _ -> },
-    val onDrag: DampedDragAnimation.(size: IntSize, dragAmount: Offset) -> Unit,
+    initialValue: Float,
+    private val valueRange: ClosedRange<Float>,
+    visibilityThreshold: Float,
+    private val initialScale: Float,
+    private val pressedScale: Float,
+    private val onDragStarted: DampedDragAnimation.(position: Offset) -> Unit,
+    private val onDragStopped: DampedDragAnimation.() -> Unit,
+    private val onDrag: DampedDragAnimation.(size: IntSize, dragAmount: Offset) -> Unit
 ) {
 
     private val valueAnimationSpec =
@@ -55,11 +52,9 @@ class DampedDragAnimation(
         Animatable(initialScale, 0.001f)
 
     private val mutatorMutex = MutatorMutex()
-
     private val velocityTracker = VelocityTracker()
 
     val value: Float get() = valueAnimation.value
-    val progress: Float get() = (value - valueRange.start) / (valueRange.endInclusive - valueRange.start)
     val targetValue: Float get() = valueAnimation.targetValue
     val pressProgress: Float get() = pressProgressAnimation.value
     val scaleX: Float get() = scaleXAnimation.value
@@ -70,7 +65,6 @@ class DampedDragAnimation(
         inspectDragGestures(
             onDragStart = { down ->
                 onDragStarted(down.position)
-                onPress(down.position, size)
                 press()
             },
             onDragEnd = {
@@ -136,7 +130,8 @@ class DampedDragAnimation(
             SystemClock.uptimeMillis(),
             Offset(value, 0f)
         )
-        val targetVelocity = velocityTracker.calculateVelocity().x / (valueRange.endInclusive - valueRange.start)
+        val targetVelocity =
+            velocityTracker.calculateVelocity().x / (valueRange.endInclusive - valueRange.start)
         animationScope.launch { velocityAnimation.animateTo(targetVelocity, velocityAnimationSpec) }
     }
 }

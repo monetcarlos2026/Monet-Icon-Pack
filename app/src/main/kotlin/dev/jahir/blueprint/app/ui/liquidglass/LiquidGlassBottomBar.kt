@@ -1,5 +1,6 @@
-package dev.jahir.blueprint.app.glass
+package dev.jahir.blueprint.app.ui.liquidglass
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -33,104 +34,93 @@ import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.backdrops.rememberCanvasBackdrop
 import kotlin.math.roundToInt
 
-/** One tab, mapped 1:1 to a Blueprint bottom-navigation menu item id. */
-data class GlassTab(val menuId: Int, val iconRes: Int, val label: String)
-
-/**
- * App-facing wrapper: feeds a live snapshot of the content behind the bar
- * ([backdropState]) into the interactive [LiquidBottomTabs] so the iOS-26 liquid
- * glass refracts the real UI, and bridges tab taps back to Blueprint via [onSelect].
- */
 @Composable
 fun LiquidGlassBottomBar(
-    tabs: List<GlassTab>,
-    selectedId: Int,
-    onSelect: (Int) -> Unit,
-    backdropState: GlassBackdropState,
+    tabs: List<LiquidGlassTab>,
+    selectedRouteId: Int,
+    onRouteSelected: (Int) -> Unit,
+    backdropState: LiquidGlassBackdropState,
     modifier: Modifier = Modifier,
-    onInteraction: () -> Unit = {},
+    onInteraction: () -> Unit = {}
 ) {
     if (tabs.isEmpty()) return
 
+    val isDarkTheme = isSystemInDarkTheme()
+    val contentColor = if (isDarkTheme) Color.White else Color.Black
+    val selectedContentColor = if (isDarkTheme) Color(0xFF4DA3FF) else Color(0xFF007AFF)
+    val fallbackBackdropColor = if (isDarkTheme) Color(0xFF121212) else Color.White
     val navBottom = with(LocalDensity.current) {
         WindowInsets.navigationBars.getBottom(this).toDp()
     }
-    val dark = isSystemInDarkTheme()
-    val contentColor = if (dark) Color.White else Color.Black
-    val selectedContentColor = Color(0xFF3881FA)
 
-    var barPos by remember { mutableStateOf(Offset.Zero) }
-
-    // Stable providers — the component uses selectedTabIndex/onTabSelected as
-    // remember()/LaunchedEffect keys, so they MUST be stable instances. Passing a
-    // fresh lambda that captures the (unstable) tabs list each recomposition reset
-    // the internal animation state every frame -> jumpy "ghosting" and the pill not
-    // following the finger.
-    val selectedIndex = tabs.indexOfFirst { it.menuId == selectedId }.coerceAtLeast(0)
+    var barPosition by remember { mutableStateOf(Offset.Zero) }
+    val selectedIndex = tabs.indexOfFirst { it.routeId == selectedRouteId }.coerceAtLeast(0)
     val selectedIndexState = rememberUpdatedState(selectedIndex)
     val tabsState = rememberUpdatedState(tabs)
-    val onSelectState = rememberUpdatedState(onSelect)
+    val onRouteSelectedState = rememberUpdatedState(onRouteSelected)
     val selectedTabIndexProvider = remember { { selectedIndexState.value } }
-    val onTabSelectedCb: (Int) -> Unit = remember {
-        { idx -> tabsState.value.getOrNull(idx)?.let { onSelectState.value(it.menuId) } }
+    val onTabSelected: (Int) -> Unit = remember {
+        { index ->
+            tabsState.value.getOrNull(index)?.let { tab ->
+                onRouteSelectedState.value(tab.routeId)
+            }
+        }
     }
 
     val backdrop = rememberCanvasBackdrop {
-        val img = backdropState.image
-        val fw = backdropState.fullWidth
-        val fh = backdropState.fullHeight
-        if (img != null && fw > 0 && fh > 0) {
-            val tl = backdropState.contentTopLeftInWindow
-            // Stretch the down-scaled snapshot back to 1:1 window space, offset so the
-            // slice directly behind the bar lands under it.
+        drawRect(fallbackBackdropColor)
+        val image = backdropState.image
+        val fullWidth = backdropState.fullWidth
+        val fullHeight = backdropState.fullHeight
+        if (image != null && fullWidth > 0 && fullHeight > 0) {
+            val contentTopLeft = backdropState.contentTopLeftInWindow
             drawImage(
-                image = img,
+                image = image,
                 srcOffset = IntOffset.Zero,
-                srcSize = IntSize(img.width, img.height),
+                srcSize = IntSize(image.width, image.height),
                 dstOffset = IntOffset(
-                    (tl.x - barPos.x).roundToInt(),
-                    (tl.y - barPos.y).roundToInt()
+                    (contentTopLeft.x - barPosition.x).roundToInt(),
+                    (contentTopLeft.y - barPosition.y).roundToInt()
                 ),
-                dstSize = IntSize(fw, fh)
+                dstSize = IntSize(fullWidth, fullHeight)
             )
-        } else {
-            drawRect(if (dark) Color(0xFF202124) else Color(0xFFF2F2F2))
         }
     }
 
     Box(
         modifier
             .fillMaxWidth()
-            .padding(start = 24.dp, end = 24.dp, top = 6.dp, bottom = navBottom + 10.dp),
+            .padding(start = 24.dp, end = 24.dp, top = 6.dp, bottom = navBottom + 14.dp),
         contentAlignment = Alignment.Center
     ) {
         LiquidBottomTabs(
             selectedTabIndex = selectedTabIndexProvider,
-            onTabSelected = onTabSelectedCb,
+            onTabSelected = onTabSelected,
             backdrop = backdrop,
             tabsCount = tabs.size,
             onInteraction = onInteraction,
             modifier = Modifier
                 .fillMaxWidth()
-                .onGloballyPositioned { barPos = it.positionInWindow() }
-        ) { hiddenIndex, selectedContentIndex ->
+                .onGloballyPositioned { barPosition = it.positionInWindow() }
+        ) {
             tabs.forEachIndexed { index, tab ->
-                val selectedContent = selectedContentIndex == index
-                val tabColor = if (selectedContent) selectedContentColor else contentColor
+                val color = if (index == selectedIndex) selectedContentColor else contentColor
                 LiquidBottomTab(
-                    onClick = { onSelect(tab.menuId) },
-                    visible = selectedContentIndex != null || hiddenIndex != index,
-                    enabled = selectedContentIndex != null
+                    onClick = { onRouteSelected(tab.routeId) }
                 ) {
-                    androidx.compose.foundation.Image(
+                    Image(
                         painter = painterResource(tab.iconRes),
                         contentDescription = tab.label,
-                        colorFilter = ColorFilter.tint(tabColor),
+                        colorFilter = ColorFilter.tint(color),
                         modifier = Modifier.size(24.dp)
                     )
                     BasicText(
                         text = tab.label,
-                        style = TextStyle(color = tabColor, fontSize = 10.sp, textAlign = TextAlign.Center),
+                        style = TextStyle(
+                            color = color,
+                            fontSize = 10.sp,
+                            textAlign = TextAlign.Center
+                        ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
