@@ -6,4 +6,4 @@ assets = { directory = "./public", binding = "ASSETS" }
 [[d1_databases]]
 binding = "DB"
 database_name = "apptracker_selfhost"
-database_id = "replace-with-your-d1-database-id"
+database_id = "abf6a8cc-4be0-443c-a090-1c7ddafabbea"
