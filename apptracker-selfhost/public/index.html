@@ -9,12 +9,26 @@
 <body>
   <aside class="sidebar">
     <div class="brand">
-      <div class="logo">M</div>
+      <a class="logo-link" href="https://www.coolapk.com/u/9021855" target="_blank" rel="noopener noreferrer" title="打开 CoolApk 主页">
+        <img class="logo" src="/logo.png" alt="AppTracker logo">
+      </a>
       <div>
-        <strong>Monet AppTracker</strong>
-        <span>自建图标适配收集</span>
+        <strong>AppTracker</strong>
+        <span>控制面板</span>
       </div>
     </div>
+
+    <nav class="primary-nav" id="primaryNav" hidden>
+      <span class="nav-label">常规</span>
+      <button id="statsBtn" class="nav-action nav-link active" type="button">
+        <span class="nav-icon" data-icon="stats"></span>
+        <span>统计</span>
+      </button>
+      <button id="adminServiceBtn" class="nav-action nav-link" type="button">
+        <span class="nav-icon" data-icon="shield"></span>
+        <span>管理员服务</span>
+      </button>
+    </nav>
 
     <section id="authPanel">
       <h2>登录 / 注册</h2>
@@ -27,31 +41,153 @@
       </div>
     </section>
 
-    <section id="accountPanel" hidden>
-      <h2>账号</h2>
-      <p id="userLine"></p>
-      <button id="logoutBtn" class="secondary">退出</button>
+    <section id="packPanel" hidden>
+      <div class="section-title">
+        <h2>图标包</h2>
+        <div class="title-actions">
+          <button id="multiSelectBtn" class="icon-btn" type="button" title="多选图标包">☑</button>
+          <button id="packCollapseBtn" class="icon-btn" type="button" title="折叠图标包">⌄</button>
+        </div>
+      </div>
+      <div id="packBulkBar" class="bulk-bar" hidden>
+        <span id="selectedPackCount">已选 0 个</span>
+        <button id="selectAllPacksBtn" class="text-btn" type="button">全选</button>
+        <button id="deleteSelectedPacksBtn" class="text-btn danger-text" type="button">删除所选</button>
+        <button id="clearPackSelectionBtn" class="text-btn" type="button">取消</button>
+      </div>
+      <div id="packList" class="pack-list"></div>
+      <div class="create-pack">
+        <input id="packName" type="text" placeholder="新图标包名称">
+        <button id="createPackBtn" class="nav-action nav-link muted-link" type="button">
+          <span class="nav-icon" data-icon="plus"></span>
+          <span>创建图标包</span>
+        </button>
+      </div>
     </section>
 
-    <section id="packPanel" hidden>
-      <h2>图标包</h2>
-      <div id="packList" class="pack-list"></div>
-      <input id="packName" type="text" placeholder="新图标包名称">
-      <button id="createPackBtn">创建图标包</button>
-    </section>
+    <nav class="side-actions">
+      <button id="homeBtn" class="nav-action nav-link secondary" type="button">
+        <span class="nav-icon" data-icon="home"></span>
+        <span>返回首页</span>
+      </button>
+      <button id="themeBtn" class="nav-action nav-link secondary" type="button">
+        <span class="nav-icon" data-icon="moon"></span>
+        <span id="themeLabel">切换主题</span>
+      </button>
+      <button id="languageBtn" class="nav-action nav-link secondary" type="button">
+        <span class="nav-icon" data-icon="language"></span>
+        <span id="languageLabel">English</span>
+      </button>
+      <div id="userBadge" class="user-badge" hidden>
+        <span id="userInitial" class="user-avatar">S</span>
+        <span>
+          <strong id="userName">SealYu</strong>
+          <small id="userEmail">3140474084@qq.com</small>
+        </span>
+        <button id="logoutBtn" class="icon-btn logout-btn" type="button" title="退出">↗</button>
+      </div>
+    </nav>
   </aside>
 
   <main>
     <header class="topbar">
+      <button id="sidebarBtn" class="top-icon" type="button" title="侧栏">
+        <span class="nav-icon" data-icon="panel"></span>
+      </button>
       <div>
         <span id="breadcrumb">控制面板</span>
-        <h1 id="title">版本详情</h1>
+        <h1 id="title">工作台</h1>
         <p id="subtitle">先注册账号，然后创建图标包和版本。</p>
       </div>
       <div class="row">
         <button id="refreshBtn" class="secondary">刷新</button>
       </div>
     </header>
+
+    <section id="statsCard" class="stats-page" hidden>
+      <div class="page-intro">
+        <h2>概览</h2>
+        <p>查看您的图标包统计数据和活动。</p>
+      </div>
+      <div class="stat-grid">
+        <article class="stat-card">
+          <h3>图标包总数</h3>
+          <strong id="statPackCount">--</strong>
+          <p id="statPackSub">0 个已拥有，0 个已共享</p>
+        </article>
+        <article class="stat-card">
+          <h3>申请总数</h3>
+          <strong id="statRequestCount">--</strong>
+          <p>被申请的独立应用数</p>
+        </article>
+        <article class="stat-card">
+          <h3>支持的应用数</h3>
+          <strong id="statAdaptedCount">--</strong>
+          <p>已覆盖应用总数</p>
+        </article>
+        <article class="stat-card">
+          <h3>最后更新</h3>
+          <strong id="statLastUpdated">--</strong>
+          <p>天前</p>
+        </article>
+      </div>
+      <article class="card activity-card">
+        <h2>近期活动</h2>
+        <p>您近期的图标包申请和更新。</p>
+        <div id="recentActivity" class="empty-activity">API 就绪后将显示活动数据。</div>
+      </article>
+    </section>
+
+    <section id="adminCard" class="card" hidden>
+      <div class="card-head">
+        <div>
+          <h2>管理员服务</h2>
+          <p>查看当前注册用户状态。</p>
+          <p class="admin-ip-line"><span id="adminIpLabel">当前访问 IP：</span><strong id="adminCurrentIp">-</strong></p>
+        </div>
+        <button id="refreshAdminBtn" class="secondary" type="button">刷新</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+          <tr>
+            <th>账号</th>
+            <th>昵称</th>
+            <th>密码</th>
+            <th>图标包数</th>
+            <th>访问 IP</th>
+            <th>最后访问</th>
+          </tr>
+          </thead>
+          <tbody id="adminUsersBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="versionsCard" class="card" hidden>
+      <div class="card-head">
+        <div>
+          <h2>版本</h2>
+          <p>管理此图标包的版本和访问令牌。</p>
+        </div>
+        <div class="row version-create">
+          <input id="versionName" type="text" placeholder="例如 1.1">
+          <button id="createVersionBtn" class="secondary">新版本</button>
+        </div>
+      </div>
+      <div class="table-wrap compact-table">
+        <table>
+          <thead>
+          <tr>
+            <th>Version</th>
+            <th>创建时间</th>
+            <th>操作</th>
+          </tr>
+          </thead>
+          <tbody id="versionsBody"></tbody>
+        </table>
+      </div>
+    </section>
 
     <section id="setupCard" class="card" hidden>
       <div class="card-head">
@@ -65,11 +201,6 @@
       <pre id="baseUrl"></pre>
       <label>apptracker_access_key</label>
       <pre id="accessKey">尚未生成</pre>
-      <label>新版本</label>
-      <div class="row">
-        <input id="versionName" type="text" placeholder="例如 1.1">
-        <button id="createVersionBtn" class="secondary">创建版本</button>
-      </div>
     </section>
 
     <section id="requestsCard" class="card" hidden>
@@ -78,7 +209,7 @@
           <h2>申请</h2>
           <p id="requestCount">0 个申请</p>
         </div>
-        <label class="check"><input id="showAdapted" type="checkbox"> 显示已适配</label>
+        <label class="check" hidden><input id="showAdapted" type="checkbox" checked> 显示已适配</label>
       </div>
       <div class="tools">
         <input id="filter" type="search" placeholder="搜索应用名 / package / activity">
@@ -96,7 +227,6 @@
             <th>Package</th>
             <th>Activity</th>
             <th>次数</th>
-            <th>最后申请</th>
             <th></th>
           </tr>
           </thead>
@@ -104,9 +234,50 @@
         </table>
       </div>
     </section>
+
+    <section id="adaptedCard" class="card" hidden>
+      <div class="card-head">
+        <div>
+          <h2>已适配应用</h2>
+          <p id="adaptedCount">0 个已适配应用。</p>
+        </div>
+        <div class="row">
+          <button id="importBtnTop" class="secondary" type="button">导入</button>
+          <button id="exportBtnTop" class="secondary" type="button">导出</button>
+          <button id="autoFillBtn" class="secondary" type="button">自动补全</button>
+        </div>
+      </div>
+      <input id="adaptedFilter" type="search" placeholder="搜索已适配应用...">
+      <div class="table-wrap">
+        <table>
+          <thead>
+          <tr>
+            <th>应用名称</th>
+            <th>Package</th>
+            <th>Activity</th>
+            <th>Drawable</th>
+            <th>分类</th>
+            <th></th>
+          </tr>
+          </thead>
+          <tbody id="adaptedBody"></tbody>
+        </table>
+      </div>
+    </section>
   </main>
 
   <div id="toast"></div>
+  <div id="adminModal" class="modal-backdrop" hidden>
+    <form id="adminForm" class="modal-card">
+      <h2>管理员服务</h2>
+      <p>请输入管理员密码。</p>
+      <input id="adminPassword" type="password" autocomplete="current-password" placeholder="密码">
+      <div class="modal-actions">
+        <button id="adminBackBtn" class="secondary" type="button">返回</button>
+        <button id="adminConfirmBtn" type="submit">确定</button>
+      </div>
+    </form>
+  </div>
   <script src="/app.js" type="module"></script>
 </body>
 </html>
