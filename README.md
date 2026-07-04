@@ -11,6 +11,8 @@ Free, feature-rich, easily customizable Android dashboard for icon packs
 
 The LiquidGlass bottom bar was compiled by MonetCarlos & Xavierrr for this software
 
+API：https://monet-apptracker.monetcarlos2026.workers.dev
+
 ---
 
 # Previews
