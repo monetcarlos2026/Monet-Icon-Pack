@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Monet AppTracker</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">M</div>
+      <div>
+        <strong>Monet AppTracker</strong>
+        <span>自建图标适配收集</span>
+      </div>
+    </div>
+
+    <section id="authPanel">
+      <h2>登录 / 注册</h2>
+      <input id="email" type="email" placeholder="邮箱">
+      <input id="name" type="text" placeholder="昵称，注册时使用">
+      <input id="password" type="password" placeholder="密码，至少 8 位">
+      <div class="row">
+        <button id="loginBtn">登录</button>
+        <button id="registerBtn" class="secondary">注册</button>
+      </div>
+    </section>
+
+    <section id="accountPanel" hidden>
+      <h2>账号</h2>
+      <p id="userLine"></p>
+      <button id="logoutBtn" class="secondary">退出</button>
+    </section>
+
+    <section id="packPanel" hidden>
+      <h2>图标包</h2>
+      <div id="packList" class="pack-list"></div>
+      <input id="packName" type="text" placeholder="新图标包名称">
+      <button id="createPackBtn">创建图标包</button>
+    </section>
+  </aside>
+
+  <main>
+    <header class="topbar">
+      <div>
+        <span id="breadcrumb">控制面板</span>
+        <h1 id="title">版本详情</h1>
+        <p id="subtitle">先注册账号，然后创建图标包和版本。</p>
+      </div>
+      <div class="row">
+        <button id="refreshBtn" class="secondary">刷新</button>
+      </div>
+    </header>
+
+    <section id="setupCard" class="card" hidden>
+      <div class="card-head">
+        <div>
+          <h2>接入配置</h2>
+          <p>生成 token 后，把下面两项写进图标包的 `blueprint_setup.xml`。</p>
+        </div>
+        <button id="createTokenBtn">生成接入 token</button>
+      </div>
+      <label>apptracker_base_url</label>
+      <pre id="baseUrl"></pre>
+      <label>apptracker_access_key</label>
+      <pre id="accessKey">尚未生成</pre>
+      <label>新版本</label>
+      <div class="row">
+        <input id="versionName" type="text" placeholder="例如 1.1">
+        <button id="createVersionBtn" class="secondary">创建版本</button>
+      </div>
+    </section>
+
+    <section id="requestsCard" class="card" hidden>
+      <div class="card-head">
+        <div>
+          <h2>申请</h2>
+          <p id="requestCount">0 个申请</p>
+        </div>
+        <label class="check"><input id="showAdapted" type="checkbox"> 显示已适配</label>
+      </div>
+      <div class="tools">
+        <input id="filter" type="search" placeholder="搜索应用名 / package / activity">
+        <button id="exportBtn" class="secondary">导出 appfilter</button>
+      </div>
+      <div class="import-box">
+        <textarea id="appfilterInput" placeholder="粘贴现有 appfilter.xml 后点击导入，可把已有适配标记为已适配"></textarea>
+        <button id="importBtn" class="secondary">导入 appfilter</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+          <tr>
+            <th>应用名称</th>
+            <th>Package</th>
+            <th>Activity</th>
+            <th>次数</th>
+            <th>最后申请</th>
+            <th></th>
+          </tr>
+          </thead>
+          <tbody id="requestsBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast"></div>
+  <script src="/app.js" type="module"></script>
+</body>
+</html>
