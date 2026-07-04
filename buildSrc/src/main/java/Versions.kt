@@ -15,7 +15,7 @@ object Versions {
     const val buildTools = "36.0.0"
 
     // Blueprint
-    const val blueprint = "2.5.1"
+    const val blueprint = "2.5.0.3"
 
     // Jetpack Compose + Liquid Glass (kyant0 Backdrop)
     // backdrop 1.0.2 is the newest release compiled with Kotlin 2.2.21 (matches this
