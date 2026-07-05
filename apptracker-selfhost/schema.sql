@@ -74,11 +74,23 @@ CREATE TABLE IF NOT EXISTS app_requests (
   system_app INTEGER NOT NULL DEFAULT 0,
   request_count INTEGER NOT NULL DEFAULT 1,
   adapted INTEGER NOT NULL DEFAULT 0,
+  category TEXT DEFAULT '无分类',
   icon_uploaded INTEGER NOT NULL DEFAULT 0,
+  icon_data_url TEXT,
   first_requested_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   last_requested_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(version_id, package_name, main_activity),
   FOREIGN KEY (version_id) REFERENCES versions(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS password_recovery_requests (
+  id TEXT PRIMARY KEY,
+  account_name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  matched_user_id TEXT,
+  requester_ip TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (matched_user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_versions_icon_pack ON versions(icon_pack_id);
@@ -86,3 +98,4 @@ CREATE INDEX IF NOT EXISTS idx_tokens_hash ON access_tokens(token_hash);
 CREATE INDEX IF NOT EXISTS idx_requests_version ON app_requests(version_id, adapted, request_count DESC);
 CREATE INDEX IF NOT EXISTS idx_auth_rate_limits_kind_subject ON auth_rate_limits(kind, subject, day);
 CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires ON admin_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_recovery_matched_user ON password_recovery_requests(matched_user_id, created_at DESC);

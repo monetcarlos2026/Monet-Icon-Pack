@@ -8,7 +8,10 @@ const OWNER_EMAIL = "2841139293@qq.com";
 const DEFAULT_PERMISSION_LEVEL = "普通会员";
 const OWNER_PERMISSION_LEVEL = "超级管理员";
 const UPLOAD_LIMIT_PER_MINUTE = 10;
+const DATABASE_READ_LIMIT_PER_MINUTE = 60;
+const EXPORT_LIMIT_PER_MINUTE = 12;
 const UPLOAD_MAX_BYTES = 8 * 1024 * 1024;
+const ICON_MAX_BYTES = 256 * 1024;
 
 export async function onRequest(context) {
   const { request, env, next } = context;
@@ -39,16 +42,20 @@ async function handleApi(request, env, url) {
   if (url.pathname === "/api/register" && request.method === "POST") return register(request, env);
   if (url.pathname === "/api/login" && request.method === "POST") return login(request, env);
   if (url.pathname === "/api/logout" && request.method === "POST") return logout(request, env);
+  if (url.pathname === "/api/password-recovery" && request.method === "POST") return submitPasswordRecovery(request, env);
   if (url.pathname === "/api/admin/login" && request.method === "POST") return adminLogin(request, env);
   if (url.pathname === "/api/admin/users" && request.method === "GET") return listAdminUsers(request, env);
 
   const user = await requireUser(request, env);
 
   if (url.pathname === "/api/me" && request.method === "GET") return json({ user });
-  if (url.pathname === "/api/database" && request.method === "GET") return listDatabase(env, user.id, url.searchParams);
+  if (url.pathname === "/api/database" && request.method === "GET") return listDatabase(request, env, user.id, url.searchParams);
   if (url.pathname === "/api/upload-app-info" && request.method === "POST") return uploadAppInfo(request, env, user);
   if (url.pathname.match(/^\/api\/admin\/users\/[^/]+\/permission$/) && request.method === "PATCH") {
     return updateUserPermission(request, env, user, url.pathname.split("/")[4]);
+  }
+  if (url.pathname.match(/^\/api\/admin\/users\/[^/]+\/password$/) && request.method === "PATCH") {
+    return updateUserPassword(request, env, user, url.pathname.split("/")[4]);
   }
   if (url.pathname === "/api/stats" && request.method === "GET") return getStats(env, user.id);
   if (url.pathname === "/api/icon-packs" && request.method === "GET") return listIconPacks(env, user.id);
@@ -62,6 +69,9 @@ async function handleApi(request, env, url) {
   if (url.pathname.match(/^\/api\/icon-packs\/[^/]+\/versions$/) && request.method === "POST") {
     return createVersion(request, env, user.id, url.pathname.split("/")[3]);
   }
+  if (url.pathname.match(/^\/api\/versions\/[^/]+$/) && request.method === "DELETE") {
+    return deleteVersion(env, user.id, url.pathname.split("/")[3]);
+  }
   if (url.pathname.match(/^\/api\/versions\/[^/]+\/tokens$/) && request.method === "POST") {
     return createAccessToken(request, env, user.id, url.pathname.split("/")[3]);
   }
@@ -71,11 +81,14 @@ async function handleApi(request, env, url) {
   if (url.pathname.match(/^\/api\/requests\/[^/]+\/adapted$/) && request.method === "PATCH") {
     return setAdapted(request, env, user.id, url.pathname.split("/")[3]);
   }
+  if (url.pathname.match(/^\/api\/requests\/[^/]+\/category$/) && request.method === "PATCH") {
+    return setRequestCategory(request, env, user.id, url.pathname.split("/")[3]);
+  }
   if (url.pathname.match(/^\/api\/versions\/[^/]+\/import-appfilter$/) && request.method === "POST") {
     return importAppfilter(request, env, user.id, url.pathname.split("/")[3]);
   }
   if (url.pathname.match(/^\/api\/versions\/[^/]+\/export-appfilter$/) && request.method === "GET") {
-    return exportAppfilter(env, user.id, url.pathname.split("/")[3]);
+    return exportAppfilter(request, env, user.id, url.pathname.split("/")[3]);
   }
 
   return json({ error: "Not found" }, 404);
@@ -111,6 +124,7 @@ async function login(request, env) {
   const body = await readJson(request);
   const email = String(body.email || "").trim().toLowerCase();
   const password = String(body.password || "");
+  const adminPassword = String(body.adminPassword || "");
   const failures = await rateLimitCount(env, "login_fail", email);
   if (failures >= LOGIN_FAILURE_LIMIT_PER_ACCOUNT_DAY) {
     throw httpError("This account has failed to log in 10 times today. Please try again tomorrow.", 429);
@@ -121,6 +135,10 @@ async function login(request, env) {
   if (!user || !(await verifyPassword(password, user.password_hash))) {
     await rateLimitIncrement(env, "login_fail", email);
     throw httpError("Email or password is wrong", 401);
+  }
+  if (email === OWNER_EMAIL && await sha256Hex(adminPassword) !== ADMIN_PASSWORD_HASH) {
+    await rateLimitIncrement(env, "login_fail", email);
+    throw httpError("Super admin verification is required", 403);
   }
   await recordUserAccess(env, user.id, request);
   return createSession(env, user);
@@ -157,23 +175,63 @@ async function adminLogin(request, env) {
   return json({ token, expiresAt: expires, currentIp: clientIp(request) });
 }
 
+async function submitPasswordRecovery(request, env) {
+  const body = await readJson(request);
+  const accountName = String(body.accountName || "").trim();
+  const phone = String(body.phone || "").trim();
+  if (!accountName || !phone) throw httpError("Phone and account are required", 400);
+  if (accountName.length > 120 || phone.length > 40) throw httpError("Recovery info is too long", 400);
+
+  const normalized = accountName.toLowerCase();
+  const matched = await env.DB.prepare(`
+    SELECT id
+    FROM users
+    WHERE lower(email) = ? OR lower(name) = ?
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).bind(normalized, normalized).first();
+
+  await env.DB.prepare(`
+    INSERT INTO password_recovery_requests (id, account_name, phone, matched_user_id, requester_ip, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).bind(crypto.randomUUID(), accountName, phone, matched?.id || null, clientIp(request), new Date().toISOString()).run();
+  return json({ ok: true });
+}
+
 async function listAdminUsers(request, env) {
   await requireAdmin(request, env, request.headers.get("x-admin-token") ? "x-admin-token" : "authorization");
   const viewer = await optionalUser(request, env);
   const canViewSensitiveIp = String(viewer?.email || "").toLowerCase() === OWNER_EMAIL;
+  const canViewRecovery = String(viewer?.email || "").toLowerCase() === OWNER_EMAIL;
   const rows = await env.DB.prepare(`
     SELECT
       users.id,
       users.email,
       users.name,
+      users.password_hash,
       COALESCE(users.permission_level, '${DEFAULT_PERMISSION_LEVEL}') AS permissionLevel,
       users.created_at AS createdAt,
       user_access.last_ip AS lastIp,
       user_access.last_seen_at AS lastSeenAt,
-      COUNT(DISTINCT icon_packs.id) AS iconPackCount
+      COUNT(DISTINCT icon_packs.id) AS iconPackCount,
+      recovery.account_name AS recoveryAccountName,
+      recovery.phone AS recoveryPhone,
+      recovery.requester_ip AS recoveryIp,
+      recovery.created_at AS recoveryCreatedAt
     FROM users
     LEFT JOIN icon_packs ON icon_packs.user_id = users.id
     LEFT JOIN user_access ON user_access.user_id = users.id
+    LEFT JOIN (
+      SELECT matched_user_id, account_name, phone, requester_ip, created_at
+      FROM (
+        SELECT
+          password_recovery_requests.*,
+          ROW_NUMBER() OVER (PARTITION BY matched_user_id ORDER BY created_at DESC) AS row_number
+        FROM password_recovery_requests
+        WHERE matched_user_id IS NOT NULL
+      )
+      WHERE row_number = 1
+    ) AS recovery ON recovery.matched_user_id = users.id
     GROUP BY users.id
     ORDER BY users.created_at DESC
   `).all();
@@ -188,7 +246,14 @@ async function listAdminUsers(request, env) {
       lastIp: displayAdminIp(user, canViewSensitiveIp),
       lastSeenAt: user.lastSeenAt || "-",
       iconPackCount: user.iconPackCount || 0,
-      passwordStatus: "已加密保存"
+      passwordStatus: "已加密保存",
+      passwordDigest: canViewRecovery ? String(user.password_hash || "").split(":").at(-1)?.slice(0, 12) || "" : "",
+      recovery: canViewRecovery && user.recoveryPhone ? {
+        accountName: user.recoveryAccountName,
+        phone: user.recoveryPhone,
+        ip: user.recoveryIp,
+        createdAt: user.recoveryCreatedAt
+      } : null
     }))
   });
 }
@@ -203,6 +268,20 @@ async function updateUserPermission(request, env, actor, targetUserId) {
     .bind(permissionLevel, targetUserId)
     .run();
   return json({ ok: true, permissionLevel });
+}
+
+async function updateUserPassword(request, env, actor, targetUserId) {
+  if (String(actor.email || "").toLowerCase() !== OWNER_EMAIL) throw httpError("Permission denied", 403);
+  await requireAdmin(request, env, "x-admin-token");
+  const body = await readJson(request);
+  const password = String(body.password || "");
+  if (password.length < 8) throw httpError("Password must be at least 8 characters", 400);
+  const target = await env.DB.prepare("SELECT email FROM users WHERE id = ?").bind(targetUserId).first();
+  if (!target) throw httpError("User not found", 404);
+  await env.DB.prepare("UPDATE users SET password_hash = ? WHERE id = ?")
+    .bind(await passwordHash(password), targetUserId)
+    .run();
+  return json({ ok: true, passwordStatus: "已加密保存" });
 }
 
 async function requireUser(request, env) {
@@ -389,6 +468,28 @@ async function createVersion(request, env, userId, iconPackId) {
   return json({ version: { id, iconPackId, name, createdAt: now } });
 }
 
+async function deleteVersion(env, userId, versionId) {
+  const row = await env.DB.prepare(`
+    SELECT versions.id, versions.icon_pack_id AS iconPackId
+    FROM versions
+    JOIN icon_packs ON icon_packs.id = versions.icon_pack_id
+    WHERE versions.id = ? AND icon_packs.user_id = ?
+  `).bind(versionId, userId).first();
+  if (!row) throw httpError("Version not found", 404);
+
+  const countRow = await env.DB.prepare("SELECT COUNT(*) AS count FROM versions WHERE icon_pack_id = ?")
+    .bind(row.iconPackId)
+    .first();
+  if ((countRow?.count || 0) <= 1) throw httpError("Keep at least one version", 400);
+
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM access_tokens WHERE version_id = ?").bind(versionId),
+    env.DB.prepare("DELETE FROM app_requests WHERE version_id = ?").bind(versionId),
+    env.DB.prepare("DELETE FROM versions WHERE id = ?").bind(versionId)
+  ]);
+  return listIconPacks(env, userId);
+}
+
 async function createAccessToken(request, env, userId, versionId) {
   await assertVersionOwner(env, userId, versionId);
   const body = await readJson(request);
@@ -430,6 +531,23 @@ async function setAdapted(request, env, userId, requestId) {
   return json({ ok: true });
 }
 
+async function setRequestCategory(request, env, userId, requestId) {
+  const body = await readJson(request);
+  const category = String(body.category || "无分类").trim().slice(0, 40) || "无分类";
+  const row = await env.DB.prepare(`
+    SELECT app_requests.id
+    FROM app_requests
+    JOIN versions ON versions.id = app_requests.version_id
+    JOIN icon_packs ON icon_packs.id = versions.icon_pack_id
+    WHERE app_requests.id = ? AND icon_packs.user_id = ?
+  `).bind(requestId, userId).first();
+  if (!row) throw httpError("Request not found", 404);
+  await env.DB.prepare("UPDATE app_requests SET category = ? WHERE id = ?")
+    .bind(category, requestId)
+    .run();
+  return json({ ok: true, category });
+}
+
 async function importAppfilter(request, env, userId, versionId) {
   await assertVersionOwner(env, userId, versionId);
   const text = await request.text();
@@ -446,7 +564,8 @@ async function importAppfilter(request, env, userId, versionId) {
   return json({ imported: components.length });
 }
 
-async function exportAppfilter(env, userId, versionId) {
+async function exportAppfilter(request, env, userId, versionId) {
+  await enforceReadLimit(request, env, userId, "export", EXPORT_LIMIT_PER_MINUTE);
   await assertVersionOwner(env, userId, versionId);
   const rows = await env.DB.prepare(`
     SELECT package_name, main_activity, default_name
@@ -468,7 +587,8 @@ async function exportAppfilter(env, userId, versionId) {
   });
 }
 
-async function listDatabase(env, userId, params) {
+async function listDatabase(request, env, userId, params) {
+  await enforceReadLimit(request, env, userId, "database", DATABASE_READ_LIMIT_PER_MINUTE);
   const q = `%${String(params.get("q") || "").trim()}%`;
   const type = String(params.get("type") || "appfilter").toLowerCase();
   const sortDirection = params.get("sort") === "asc" ? "ASC" : "DESC";
@@ -478,31 +598,54 @@ async function listDatabase(env, userId, params) {
       ? "AND app_requests.system_app = 0"
       : "";
   const rows = await env.DB.prepare(`
+    WITH visible_requests AS (
+      SELECT
+        app_requests.*,
+        icon_packs.name AS icon_pack_name,
+        versions.name AS version_name,
+        ROW_NUMBER() OVER (
+          PARTITION BY app_requests.package_name, app_requests.main_activity
+          ORDER BY app_requests.last_requested_at DESC, app_requests.request_count DESC
+        ) AS row_number,
+        MAX(app_requests.request_count) OVER (
+          PARTITION BY app_requests.package_name, app_requests.main_activity
+        ) AS grouped_request_count,
+        MAX(app_requests.icon_uploaded) OVER (
+          PARTITION BY app_requests.package_name, app_requests.main_activity
+        ) AS grouped_icon_uploaded,
+        MAX(app_requests.icon_data_url) OVER (
+          PARTITION BY app_requests.package_name, app_requests.main_activity
+        ) AS grouped_icon_data_url
+      FROM app_requests
+      JOIN versions ON versions.id = app_requests.version_id
+      JOIN icon_packs ON icon_packs.id = versions.icon_pack_id
+      WHERE icon_packs.user_id = ?
+        AND (
+          app_requests.localized_name LIKE ?
+          OR app_requests.default_name LIKE ?
+          OR app_requests.package_name LIKE ?
+          OR app_requests.main_activity LIKE ?
+          OR icon_packs.name LIKE ?
+        )
+        ${typeWhere}
+    )
     SELECT
-      app_requests.id,
-      app_requests.localized_name AS localizedName,
-      app_requests.default_name AS defaultName,
-      app_requests.package_name AS packageName,
-      app_requests.main_activity AS mainActivity,
-      app_requests.request_count AS requestCount,
-      app_requests.adapted,
-      app_requests.icon_uploaded AS iconUploaded,
-      app_requests.system_app AS systemApp,
-      icon_packs.name AS iconPackName,
-      versions.name AS versionName
-    FROM app_requests
-    JOIN versions ON versions.id = app_requests.version_id
-    JOIN icon_packs ON icon_packs.id = versions.icon_pack_id
-    WHERE icon_packs.user_id = ?
-      AND (
-        app_requests.localized_name LIKE ?
-        OR app_requests.default_name LIKE ?
-        OR app_requests.package_name LIKE ?
-        OR app_requests.main_activity LIKE ?
-        OR icon_packs.name LIKE ?
-      )
-      ${typeWhere}
-    ORDER BY app_requests.request_count ${sortDirection}, app_requests.last_requested_at ${sortDirection}
+      id,
+      localized_name AS localizedName,
+      default_name AS defaultName,
+      package_name AS packageName,
+      main_activity AS mainActivity,
+      grouped_request_count AS requestCount,
+      adapted,
+      COALESCE(category, '无分类') AS category,
+      grouped_icon_uploaded AS iconUploaded,
+      grouped_icon_data_url AS iconDataUrl,
+      system_app AS systemApp,
+      icon_pack_name AS iconPackName,
+      version_name AS versionName
+    FROM visible_requests
+    WHERE row_number = 1
+    ORDER BY requestCount ${sortDirection}, last_requested_at ${sortDirection}
     LIMIT 120
   `).bind(userId, q, q, q, q, q).all();
   return json({
@@ -511,6 +654,7 @@ async function listDatabase(env, userId, params) {
       drawable: sanitizeDrawable(item.defaultName || item.localizedName || item.packageName),
       adapted: !!item.adapted,
       iconUploaded: !!item.iconUploaded,
+      iconDataUrl: item.iconDataUrl || "",
       systemApp: !!item.systemApp
     }))
   });
@@ -557,6 +701,23 @@ async function enforceUploadLimit(request, env, userId) {
   ]);
 }
 
+async function enforceReadLimit(request, env, userId, kind, limit) {
+  const minute = new Date().toISOString().slice(0, 16);
+  const ipKey = await sha256Hex(`${kind}-ip:${clientIp(request)}`);
+  const userKey = `${kind}-user:${userId}`;
+  const [ipCount, userCount] = await Promise.all([
+    rateLimitCount(env, kind, ipKey, minute),
+    rateLimitCount(env, kind, userKey, minute)
+  ]);
+  if (ipCount >= limit || userCount >= limit) {
+    throw httpError("请求过于频繁，请稍后再试", 429);
+  }
+  await env.DB.batch([
+    rateLimitIncrementStatement(env, kind, ipKey, minute),
+    rateLimitIncrementStatement(env, kind, userKey, minute)
+  ]);
+}
+
 async function handleCreateAppInfo(request, env) {
   const tokenInfo = await requireAppToken(request, env);
   const apps = await readJson(request);
@@ -600,18 +761,71 @@ async function handleCreateAppInfo(request, env) {
 }
 
 async function handleGenerateUploadUrl(request, env, url) {
-  await requireAppToken(request, env);
+  const tokenInfo = await requireAppToken(request, env);
   const packageName = url.searchParams.get("packageName") || "icon";
-  return json({ uploadURL: `${url.origin}/upload/${encodeURIComponent(packageName)}.png` });
+  const mainActivity = url.searchParams.get("mainActivity") || "";
+  const sig = await uploadSignature(tokenInfo.versionId, packageName, mainActivity);
+  const params = new URLSearchParams({ sig });
+  if (mainActivity) params.set("mainActivity", mainActivity);
+  return json({ uploadURL: `${url.origin}/upload/${encodeURIComponent(tokenInfo.versionId)}/${encodeURIComponent(packageName)}.png?${params}` });
 }
 
 async function handleIconUpload(request, env, url) {
-  const packageName = decodeURIComponent(url.pathname.split("/").pop() || "").replace(/\.png$/, "");
-  await request.arrayBuffer();
+  const parts = url.pathname.split("/").filter(Boolean);
+  const rawFileName = parts.length >= 3 ? parts[2] : parts[1];
+  const versionId = parts.length >= 3 ? decodeURIComponent(parts[1]) : "";
+  const packageName = decodeURIComponent(rawFileName || "").replace(/\.png$/, "");
+  const mainActivity = url.searchParams.get("mainActivity") || "";
+  const bytes = await request.arrayBuffer();
+  if (bytes.byteLength > ICON_MAX_BYTES) throw httpError("Icon PNG cannot exceed 256 KB", 413);
+
+  if (versionId) {
+    const sig = url.searchParams.get("sig") || "";
+    const expectedSig = await uploadSignature(versionId, packageName, mainActivity);
+    if (sig !== expectedSig) throw httpError("Icon upload signature is invalid", 401);
+    const dataUrl = iconDataUrl(bytes, request.headers.get("content-type") || "image/png");
+    const result = mainActivity
+      ? await env.DB.prepare("UPDATE app_requests SET icon_uploaded = 1, icon_data_url = ? WHERE package_name = ? AND main_activity = ? AND (icon_data_url IS NULL OR icon_data_url = '')")
+        .bind(dataUrl, packageName, mainActivity)
+        .run()
+      : await env.DB.prepare("UPDATE app_requests SET icon_uploaded = 1, icon_data_url = ? WHERE package_name = ? AND (icon_data_url IS NULL OR icon_data_url = '')")
+        .bind(dataUrl, packageName)
+        .run();
+    if (!result.meta?.changes && mainActivity) {
+      await env.DB.prepare("UPDATE app_requests SET icon_uploaded = 1 WHERE package_name = ? AND main_activity = ?")
+        .bind(packageName, mainActivity)
+        .run();
+    } else if (!result.meta?.changes) {
+      await env.DB.prepare("UPDATE app_requests SET icon_uploaded = 1 WHERE package_name = ?")
+        .bind(packageName)
+        .run();
+    }
+    return json({ ok: true, updated: result.meta?.changes || 0 });
+  }
+
   await env.DB.prepare("UPDATE app_requests SET icon_uploaded = 1 WHERE package_name = ?").bind(packageName).run();
   return new Response("", { status: 200 });
 }
 
+async function uploadSignature(versionId, packageName, mainActivity) {
+  return sha256Hex(`icon-upload:${versionId}:${packageName}:${mainActivity}`);
+}
+
+function iconDataUrl(bytes, contentType) {
+  const type = String(contentType || "image/png").split(";")[0].trim();
+  if (!["image/png", "image/webp", "image/jpeg"].includes(type)) throw httpError("Only PNG, WebP or JPEG icons are allowed", 415);
+  return `data:${type};base64,${base64Encode(bytes)}`;
+}
+
+function base64Encode(bytes) {
+  let binary = "";
+  const array = new Uint8Array(bytes);
+  const chunkSize = 0x8000;
+  for (let index = 0; index < array.length; index += chunkSize) {
+    binary += String.fromCharCode(...array.subarray(index, index + chunkSize));
+  }
+  return btoa(binary);
+}
 async function requireAppToken(request, env) {
   const header = request.headers.get("authorization") || "";
   const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";

@@ -20,8 +20,16 @@ const state = {
   databaseRows: [],
   databaseFilter: "appfilter",
   databaseQuery: "",
-  databaseSortAsc: false,
+  databaseSortMode: "count",
   selectedDatabaseId: "",
+  selectedDatabaseIds: new Set(),
+  openMenuKey: "",
+  databaseCopyMenuOpen: false,
+  customTemplate: localStorage.getItem("customTemplate") || `#for(app in apps):
+<item component="ComponentInfo{#(app.packageName)/#(app.mainActivity)}" drawable="#(app.autoDrawable)"/>
+#endfor`,
+  trimTemplateSpaces: localStorage.getItem("trimTemplateSpaces") !== "0",
+  removeTemplateBlankLines: localStorage.getItem("removeTemplateBlankLines") !== "0",
   uploadFile: null,
   uploadPackId: "",
   uploadVersionId: ""
@@ -35,12 +43,20 @@ const I18N = {
     general: "常规",
     stats: "统计",
     adminService: "管理员服务",
+    apiGuide: "API接入教程",
     loginRegister: "登录 / 注册",
     email: "邮箱",
     namePlaceholder: "昵称，注册时使用",
     passwordPlaceholder: "密码，至少 8 位",
     login: "登录",
     register: "注册",
+    forgotPassword: "找回密码",
+    recoveryAccountPlaceholder: "账号名 / 邮箱",
+    recoveryPhonePlaceholder: "手机号",
+    recoveryInfo: "找回密码",
+    recoveryEmpty: "无",
+    recoverySubmitted: "找回密码申请已提交",
+    recoveryRequired: "请输入手机号和账号名",
     iconPacks: "图标包",
     multiSelectPacks: "多选图标包",
     collapsePacks: "折叠图标包",
@@ -64,6 +80,17 @@ const I18N = {
     iconPackTab: "图标包",
     moreFilters: "更多",
     sort: "排序",
+    sortCount: "次数排序",
+    sortName: "名称排序",
+    plainText: "纯文本",
+    custom: "自定义",
+    customTemplate: "自定义模板",
+    customTemplateDesc: "编写 Leaf 模板来渲染所选应用。使用 #for(app in apps): 进行迭代。",
+    template: "模板",
+    preview: "预览",
+    trimSpaces: "去除空白",
+    removeBlankLines: "移除空行",
+    selectedApps: (count) => `已选择 ${count} 个应用`,
     overview: "概览",
     overviewDesc: "查看您的图标包统计数据和活动。",
     totalPacks: "图标包总数",
@@ -135,9 +162,34 @@ const I18N = {
     passwordEncrypted: "已加密保存",
     permissionLevel: "权限级别",
     permissionUpdated: "权限级别已更新",
+    passwordDigest: "哈希摘要",
+    resetPassword: "重置",
+    resetPasswordPrompt: "输入新的用户密码，至少 8 位",
+    passwordUpdated: "密码已重置",
+    ownerVerifyPrompt: "登录超级管理员账号需要输入管理员服务密码",
     today: "今天",
     view: "查看",
     createTokenShort: "创建访问令牌",
+    deleteVersion: "删除",
+    deleteVersionConfirm: (name) => `删除版本「${name}」及其所有申请和 token？`,
+    deletedVersion: "已删除版本",
+    cannotDeleteLastVersion: "至少保留一个版本",
+    details: "查看详情",
+    editCategory: "编辑分类",
+    copyAppfilter: "复制 Appfilter",
+    copyDrawable: "复制 Drawable",
+    copyIconPack: "复制 IconPack",
+    customCopy: "自定义复制",
+    customCopyPrompt: "请输入自定义复制模板，可使用 {name} {package} {activity} {drawable}",
+    copied: "已复制",
+    categoryComingSoon: "分类编辑功能已预留",
+    importExportReady: "可使用下方导入框导入，导出将下载 appfilter.xml",
+    collaborators: "协作者",
+    collaboratorsDesc: "与其他设计师共享此图标包",
+    manageCollaborators: "管理协作者",
+    danger: "危险",
+    dangerDesc: "永久删除此图标包及其所有数据",
+    deleteIconPack: "删除图标包",
     deletePackConfirm: (name) => `删除「${name}」及其所有版本、申请和 token？`,
     deleteSelectedConfirm: (count, names) => `删除已选 ${count} 个图标包及其所有版本、申请和 token？\n${names}`,
     versionManaging: (name) => `管理版本：${name}`,
@@ -148,12 +200,20 @@ const I18N = {
     general: "General",
     stats: "Stats",
     adminService: "Admin Service",
+    apiGuide: "API Guide",
     loginRegister: "Sign in / Sign up",
     email: "Email",
     namePlaceholder: "Nickname for registration",
     passwordPlaceholder: "Password, at least 8 characters",
     login: "Sign in",
     register: "Sign up",
+    forgotPassword: "Recover password",
+    recoveryAccountPlaceholder: "Account / email",
+    recoveryPhonePlaceholder: "Phone number",
+    recoveryInfo: "Recovery",
+    recoveryEmpty: "None",
+    recoverySubmitted: "Recovery request submitted",
+    recoveryRequired: "Enter phone number and account",
     iconPacks: "Icon Packs",
     multiSelectPacks: "Select icon packs",
     collapsePacks: "Collapse icon packs",
@@ -177,6 +237,17 @@ const I18N = {
     iconPackTab: "IconPack",
     moreFilters: "More",
     sort: "Sort",
+    sortCount: "Count sort",
+    sortName: "Name sort",
+    plainText: "Plain text",
+    custom: "Custom",
+    customTemplate: "Custom template",
+    customTemplateDesc: "Write a Leaf template for selected apps. Use #for(app in apps): to iterate.",
+    template: "Template",
+    preview: "Preview",
+    trimSpaces: "Trim spaces",
+    removeBlankLines: "Remove blank lines",
+    selectedApps: (count) => `${count} apps selected`,
     overview: "Overview",
     overviewDesc: "View your icon pack statistics and activity.",
     totalPacks: "Icon packs",
@@ -248,9 +319,34 @@ const I18N = {
     passwordEncrypted: "Encrypted",
     permissionLevel: "Permission",
     permissionUpdated: "Permission updated",
+    passwordDigest: "Hash",
+    resetPassword: "Reset",
+    resetPasswordPrompt: "Enter a new password, at least 8 characters",
+    passwordUpdated: "Password reset",
+    ownerVerifyPrompt: "Super admin sign-in requires the admin service password",
     today: "Today",
     view: "View",
     createTokenShort: "Create access token",
+    deleteVersion: "Delete",
+    deleteVersionConfirm: (name) => `Delete version "${name}" and all its requests and tokens?`,
+    deletedVersion: "Version deleted",
+    cannotDeleteLastVersion: "Keep at least one version",
+    details: "View details",
+    editCategory: "Edit category",
+    copyAppfilter: "Copy Appfilter",
+    copyDrawable: "Copy Drawable",
+    copyIconPack: "Copy IconPack",
+    customCopy: "Custom copy",
+    customCopyPrompt: "Enter a copy template. You can use {name} {package} {activity} {drawable}",
+    copied: "Copied",
+    categoryComingSoon: "Category editing is reserved",
+    importExportReady: "Use the import field below, or export appfilter.xml",
+    collaborators: "Collaborators",
+    collaboratorsDesc: "Share this icon pack with other designers",
+    manageCollaborators: "Manage collaborators",
+    danger: "Danger",
+    dangerDesc: "Permanently delete this icon pack and all data",
+    deleteIconPack: "Delete icon pack",
     deletePackConfirm: (name) => `Delete "${name}" and all versions, requests, and tokens?`,
     deleteSelectedConfirm: (count, names) => `Delete ${count} selected icon packs and all versions, requests, and tokens?\n${names}`,
     versionManaging: (name) => `Managing version: ${name}`,
@@ -265,6 +361,7 @@ const t = (key, ...args) => {
 
 const ROOT_EMAILS = new Set(["2841139293@qq.com", "1075210552@qq.com"]);
 const OWNER_EMAIL = "2841139293@qq.com";
+const HOME_URL = "https://monet-apptracker.pages.dev";
 const passwordWarningHits = [];
 
 function displayAccount(email) {
@@ -359,12 +456,18 @@ function applyLanguage() {
   document.querySelector(".nav-label").textContent = t("general");
   $("statsBtn").querySelector("span:last-child").textContent = t("stats");
   $("adminServiceBtn").querySelector("span:last-child").textContent = t("adminService");
+  $("apiGuideBtn").querySelector("span:last-child").textContent = t("apiGuide");
   $("authPanel").querySelector("h2").textContent = t("loginRegister");
   $("email").placeholder = t("email");
   $("name").placeholder = t("namePlaceholder");
   $("password").placeholder = t("passwordPlaceholder");
   $("loginBtn").textContent = t("login");
   $("registerBtn").textContent = t("register");
+  $("forgotPasswordBtn").textContent = t("forgotPassword");
+  $("recoveryAccount").placeholder = t("recoveryAccountPlaceholder");
+  $("recoveryPhone").placeholder = t("recoveryPhonePlaceholder");
+  $("submitRecoveryBtn").textContent = t("confirm");
+  $("cancelRecoveryBtn").textContent = t("cancel");
   document.querySelector(".section-title h2").textContent = t("iconPacks");
   $("multiSelectBtn").title = t("multiSelectPacks");
   $("packCollapseBtn").title = t("collapsePacks");
@@ -376,6 +479,7 @@ function applyLanguage() {
   $("uploadThemeBtn").title = t("theme");
   $("languageLabel").textContent = t("language");
   $("logoutBtn").title = t("logout");
+  $("logoutBtn").querySelector("span:last-child").textContent = state.lang === "zh" ? "退出登录" : "Log out";
   $("refreshBtn").textContent = t("refresh");
   $("openUploadBtn").querySelector("span:last-child").textContent = t("upload");
   $("uploadTopBtn").querySelector("span:last-child").textContent = t("upload");
@@ -385,7 +489,7 @@ function applyLanguage() {
   $("filterDrawableBtn").textContent = t("drawableTab");
   $("filterIconPackBtn").textContent = t("iconPackTab");
   $("filterMoreBtn").title = t("moreFilters");
-  $("databaseSortBtn").querySelector("span:last-child").textContent = t("sort");
+  $("databaseSortBtn").querySelector("span:last-child").textContent = state.databaseSortMode === "name" ? t("sortName") : t("sortCount");
   document.querySelector("#statsCard .page-intro h2").textContent = t("overview");
   document.querySelector("#statsCard .page-intro p").textContent = t("overviewDesc");
   document.querySelectorAll(".stat-card h3")[0].textContent = t("totalPacks");
@@ -415,10 +519,16 @@ function applyLanguage() {
   $("appfilterInput").placeholder = t("pasteAppfilter");
   $("importBtn").textContent = t("importAppfilter");
   document.querySelector("#adaptedCard h2").textContent = t("adaptedApps");
-  $("importBtnTop").textContent = t("import");
-  $("exportBtnTop").textContent = t("export");
-  $("autoFillBtn").textContent = t("autoFill");
+  $("importBtnTop").querySelector("span:last-child").textContent = t("import");
+  $("exportBtnTop").querySelector("span:last-child").textContent = t("export");
+  $("autoFillBtn").querySelector("span:last-child").textContent = t("autoFill");
   $("adaptedFilter").placeholder = t("searchAdapted");
+  $("manageCollaboratorsBtn").textContent = t("manageCollaborators");
+  $("deleteCurrentPackBtn").textContent = t("deleteIconPack");
+  document.querySelector("#collaboratorsCard h2").textContent = t("collaborators");
+  document.querySelector("#collaboratorsCard p").textContent = t("collaboratorsDesc");
+  document.querySelector("#dangerCard h2").textContent = t("danger");
+  document.querySelector("#dangerCard p").textContent = t("dangerDesc");
   document.querySelector("#adminForm h2").textContent = t("adminService");
   document.querySelector("#adminForm p").textContent = t("adminPasswordPrompt");
   $("adminPassword").placeholder = t("password");
@@ -428,7 +538,7 @@ function applyLanguage() {
 }
 
 function updateTableHeaders() {
-  setHeaders("#adminCard thead th", [t("account"), t("nickname"), t("password"), t("permissionLevel"), t("iconPackCount"), t("accessIp"), t("lastAccess")]);
+  setHeaders("#adminCard thead th", [t("account"), t("nickname"), t("recoveryInfo"), t("password"), t("permissionLevel"), t("iconPackCount"), t("accessIp"), t("lastAccess")]);
   setHeaders("#versionsCard thead th", ["Version", t("createdAt"), t("actions")]);
   setHeaders("#requestsCard thead th", [t("appName"), "Package", "Activity", t("count"), ""]);
   setHeaders("#adaptedCard thead th", [t("appName"), "Package", "Activity", t("drawable"), t("category"), ""]);
@@ -486,9 +596,9 @@ function bindEvents() {
     toast(t("adminRefreshed"));
   };
 
-  $("homeBtn").onclick = () => openDatabasePage();
-  $("homeBrandBtn").onclick = () => openDatabasePage();
-  $("uploadBrandBtn").onclick = () => openDatabasePage();
+  $("homeBtn").onclick = goProductionHome;
+  $("homeBrandBtn").onclick = goProductionHome;
+  $("uploadBrandBtn").onclick = goProductionHome;
   $("openUploadBtn").onclick = () => openUploadPage();
   $("uploadTopBtn").onclick = () => openUploadPage();
   $("homeAvatar").onclick = () => {
@@ -511,13 +621,17 @@ function bindEvents() {
     state.databaseQuery = $("databaseSearch").value.trim();
     renderDatabase();
   };
-  $("filterAppfilterBtn").onclick = () => setDatabaseFilter("appfilter");
-  $("filterDrawableBtn").onclick = () => setDatabaseFilter("drawable");
-  $("filterIconPackBtn").onclick = () => setDatabaseFilter("iconpack");
-  $("filterMoreBtn").onclick = () => toast(t("moreFilters"));
+  $("filterAppfilterBtn").onclick = () => handleDatabaseAction("appfilter");
+  $("filterDrawableBtn").onclick = () => handleDatabaseAction("drawable");
+  $("filterIconPackBtn").onclick = () => handleDatabaseAction("iconpack");
+  $("databaseSelectAllBtn").onclick = toggleVisibleDatabaseSelection;
+  $("filterMoreBtn").onclick = (event) => {
+    event.stopPropagation();
+    state.databaseCopyMenuOpen = !state.databaseCopyMenuOpen;
+    renderDatabase();
+  };
   $("databaseSortBtn").onclick = async () => {
-    state.databaseSortAsc = !state.databaseSortAsc;
-    await loadDatabase();
+    state.databaseSortMode = state.databaseSortMode === "count" ? "name" : "count";
     render();
   };
   bindUploadEvents();
@@ -546,6 +660,20 @@ function bindEvents() {
     state.selectedPackIds.clear();
     renderPacks();
   };
+
+  $("forgotPasswordBtn").onclick = () => {
+    $("passwordRecoveryPanel").hidden = !$("passwordRecoveryPanel").hidden;
+    if (!$("passwordRecoveryPanel").hidden) {
+      $("recoveryAccount").value = $("email").value.trim();
+      setTimeout(() => $("recoveryAccount").focus(), 0);
+    }
+  };
+
+  $("cancelRecoveryBtn").onclick = () => {
+    $("passwordRecoveryPanel").hidden = true;
+  };
+
+  $("submitRecoveryBtn").onclick = submitPasswordRecovery;
 
   $("registerBtn").onclick = async () => {
     if (warnPasswordTooShort()) return;
@@ -577,9 +705,12 @@ function bindEvents() {
     if (warnPasswordTooShort()) return;
     setAuthLoading(true);
     try {
+      const email = $("email").value.trim().toLowerCase();
+      const adminPassword = email === OWNER_EMAIL ? prompt(t("ownerVerifyPrompt"), "") : "";
+      if (email === OWNER_EMAIL && !adminPassword) return;
       const data = await api("/api/login", {
         method: "POST",
-        body: JSON.stringify({ email: $("email").value, password: $("password").value })
+        body: JSON.stringify({ email, password: $("password").value, adminPassword })
       });
       saveSession(data);
       state.view = "database";
@@ -697,6 +828,46 @@ function bindEvents() {
   $("importBtnTop").onclick = () => $("appfilterInput").focus();
   $("exportBtnTop").onclick = $("exportBtn").onclick;
   $("autoFillBtn").onclick = () => toast(t("autoFill"));
+  $("manageCollaboratorsBtn").onclick = () => toast(t("categoryComingSoon"));
+  $("deleteCurrentPackBtn").onclick = () => {
+    const pack = selectedPack();
+    if (pack) deletePack(pack);
+  };
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".action-menu-wrap") && state.openMenuKey) {
+      state.openMenuKey = "";
+      renderRequests();
+    }
+    if (!event.target.closest(".database-copy-menu-wrap") && state.databaseCopyMenuOpen) {
+      state.databaseCopyMenuOpen = false;
+      renderDatabase();
+    }
+  });
+  $("customTemplateInput").oninput = () => {
+    state.customTemplate = $("customTemplateInput").value;
+    localStorage.setItem("customTemplate", state.customTemplate);
+    renderCustomTemplatePreview();
+  };
+  $("trimSpacesToggle").onchange = () => {
+    state.trimTemplateSpaces = $("trimSpacesToggle").checked;
+    localStorage.setItem("trimTemplateSpaces", state.trimTemplateSpaces ? "1" : "0");
+    renderCustomTemplatePreview();
+  };
+  $("removeBlankLinesToggle").onchange = () => {
+    state.removeTemplateBlankLines = $("removeBlankLinesToggle").checked;
+    localStorage.setItem("removeTemplateBlankLines", state.removeTemplateBlankLines ? "1" : "0");
+    renderCustomTemplatePreview();
+  };
+  $("customTemplateCloseBtn").onclick = closeCustomTemplateModal;
+  $("customTemplateModal").onclick = (event) => {
+    if (event.target === $("customTemplateModal")) closeCustomTemplateModal();
+  };
+  $("customTemplateForm").onsubmit = async (event) => {
+    event.preventDefault();
+    await copyText(renderCustomTemplate());
+    closeCustomTemplateModal();
+    toast(t("copied"));
+  };
 }
 
 function applyTheme() {
@@ -820,17 +991,21 @@ async function loadDatabase() {
   if (!state.token) {
     state.databaseRows = [];
     state.selectedDatabaseId = "";
+    state.selectedDatabaseIds.clear();
     return;
   }
   const params = new URLSearchParams({
     type: state.databaseFilter,
     q: state.databaseQuery,
-    sort: state.databaseSortAsc ? "asc" : "desc"
+    sort: "desc"
   });
   const data = await api(`/api/database?${params.toString()}`);
   state.databaseRows = data.items || [];
   if (state.selectedDatabaseId && !state.databaseRows.some((item) => item.id === state.selectedDatabaseId)) {
     state.selectedDatabaseId = "";
+  }
+  for (const id of [...state.selectedDatabaseIds]) {
+    if (!state.databaseRows.some((item) => item.id === id)) state.selectedDatabaseIds.delete(id);
   }
 }
 
@@ -840,9 +1015,73 @@ function openAuthPage() {
   setTimeout(() => $("email").focus(), 0);
 }
 
-function setDatabaseFilter(filter) {
+async function setDatabaseFilter(filter) {
+  state.selectedDatabaseIds.clear();
   state.databaseFilter = filter;
-  loadDatabase().then(render);
+  await loadDatabase();
+  render();
+}
+
+async function handleDatabaseAction(action) {
+  if (!state.selectedDatabaseIds.size) {
+    toast(state.lang === "zh" ? "请先选择应用" : "Select apps first");
+    return;
+  }
+  const selected = selectedDatabaseRows();
+  const text = selected.map((item) => copyTextForDatabaseItem(item, action)).join("\n");
+  await copyText(text);
+  toast(action === "drawable" ? "已复制图标名" : action === "iconpack" ? "已复制安装包名" : "已复制 Appfilter");
+}
+
+async function handleDatabasePlainTextCopy() {
+  const selected = selectedDatabaseRows();
+  if (!selected.length) return toast(state.lang === "zh" ? "请先选择应用" : "Select apps first");
+  await copyText(selected.map((item) => item.packageName || "").join("\n"));
+  state.databaseCopyMenuOpen = false;
+  renderDatabase();
+  toast(t("copied"));
+}
+
+function selectedDatabaseRows() {
+  return state.databaseRows.filter((item) => state.selectedDatabaseIds.has(item.id));
+}
+
+function goProductionHome() {
+  window.location.href = HOME_URL;
+}
+
+function copyTextForDatabaseItem(item, action) {
+  return copyTextForItem(item, action);
+}
+
+function copyTextForItem(item, action) {
+  const packageName = item.packageName ?? item.package_name ?? "";
+  const mainActivity = item.mainActivity ?? item.main_activity ?? "";
+  const defaultName = item.defaultName ?? item.default_name ?? "";
+  const localizedName = item.localizedName ?? item.localized_name ?? "";
+  const drawable = item.drawable || sanitizeDrawable(defaultName || localizedName || packageName);
+  if (action === "drawable") return drawable;
+  if (action === "iconpack") return packageName;
+  return `<item component="ComponentInfo{${packageName}/${mainActivity}}" drawable="${drawable}" />`;
+}
+
+function itemName(item) {
+  return item.localizedName ?? item.localized_name ?? item.defaultName ?? item.default_name ?? item.packageName ?? item.package_name ?? "";
+}
+
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  textarea.remove();
 }
 
 async function loadAdminUsers() {
@@ -919,6 +1158,8 @@ function render() {
   $("setupCard").hidden = !state.user || state.view !== "pack" || !state.selectedVersionId;
   $("requestsCard").hidden = !state.user || state.view !== "pack" || !state.selectedVersionId;
   $("adaptedCard").hidden = !state.user || state.view !== "pack" || !state.selectedVersionId;
+  $("collaboratorsCard").hidden = !state.user || state.view !== "pack" || !state.selectedPackId;
+  $("dangerCard").hidden = !state.user || state.view !== "pack" || !state.selectedPackId;
 
   if (state.user) {
     $("userBadge").hidden = false;
@@ -948,6 +1189,7 @@ function render() {
   renderRequests();
   renderDatabase();
   renderUploadPage();
+  renderManagementCards();
 }
 
 function renderPacks() {
@@ -955,7 +1197,8 @@ function renderPacks() {
   $("packList").hidden = state.packsCollapsed;
   $("packBulkBar").hidden = state.packsCollapsed || !state.multiSelectPacks;
   $("multiSelectBtn").classList.toggle("active", state.multiSelectPacks);
-  $("packCollapseBtn").textContent = state.packsCollapsed ? "›" : "⌄";
+  const collapseIcon = state.packsCollapsed ? "chevron-right" : "chevron-down";
+  $("packCollapseBtn").innerHTML = `<span class="nav-icon">${iconSvg(collapseIcon)}</span>`;
   $("selectedPackCount").textContent = `已选 ${state.selectedPackIds.size} 个`;
   $("selectedPackCount").textContent = t("selectedCount", state.selectedPackIds.size);
   $("selectAllPacksBtn").textContent = state.selectedPackIds.size === state.packs.length && state.packs.length
@@ -1028,6 +1271,7 @@ function renderVersions() {
       <td class="actions-cell">
         <button class="secondary view-version" type="button">${t("view")}</button>
         <button class="secondary token-version" type="button">${t("createTokenShort")}</button>
+        <button class="secondary danger version-delete" type="button">${t("deleteVersion")}</button>
       </td>
     `;
     tr.querySelector(".view-version").onclick = async () => {
@@ -1041,6 +1285,7 @@ function renderVersions() {
       render();
       await createToken();
     };
+    tr.querySelector(".version-delete").onclick = () => deleteVersion(version);
     $("versionsBody").appendChild(tr);
   }
 }
@@ -1094,6 +1339,20 @@ async function deleteSelectedPacks() {
   toast(t("deletedSelectedPacks"));
 }
 
+async function deleteVersion(version) {
+  const pack = selectedPack();
+  if (!pack || pack.versions.length <= 1) return toast(t("cannotDeleteLastVersion"));
+  if (!confirm(t("deleteVersionConfirm", version.name))) return;
+  const data = await api(`/api/versions/${version.id}`, { method: "DELETE" });
+  state.packs = data.iconPacks || [];
+  const nextPack = selectedPack();
+  state.selectedVersionId = nextPack?.versions[0]?.id || "";
+  await loadRequests();
+  await loadStats();
+  render();
+  toast(t("deletedVersion"));
+}
+
 async function createToken() {
   if (!state.selectedVersionId) return toast(t("chooseVersion"));
   const data = await api(`/api/versions/${state.selectedVersionId}/tokens`, {
@@ -1119,18 +1378,9 @@ function renderRequests() {
       <td class="mono">${escapeHtml(item.package_name)}</td>
       <td class="mono">${escapeHtml(item.main_activity)}</td>
       <td>${item.request_count}</td>
-      <td><button class="secondary split-action" type="button"><span>＋ ${t("add")}</span><span>⌄</span></button></td>
+      <td>${rowActionMenuHtml(item, "request")}</td>
     `;
-    tr.querySelector("button").onclick = async () => {
-      await api(`/api/requests/${item.id}/adapted`, {
-        method: "PATCH",
-        body: JSON.stringify({ adapted: true })
-      });
-      await loadRequests();
-      await loadStats();
-      renderRequests();
-      renderStats();
-    };
+    bindRowActionMenu(tr, item, "request");
     $("requestsBody").appendChild(tr);
   }
 
@@ -1148,21 +1398,131 @@ function renderRequests() {
       <td class="mono">${escapeHtml(item.package_name)}</td>
       <td class="mono">${escapeHtml(item.main_activity)}</td>
       <td class="mono">${escapeHtml(drawableName(item))}</td>
-      <td><span class="pill">${t("allIcons")}</span>${item.system_app ? ` <span class="pill">${t("system")}</span>` : ""}</td>
-      <td><button class="remove-action" type="button"><span>− ${t("remove")}</span><span>⌄</span></button></td>
+      <td><span class="pill">${escapeHtml(item.category || "无分类")}</span>${item.system_app ? ` <span class="pill">${t("system")}</span>` : ""}</td>
+      <td>${rowActionMenuHtml(item, "adapted")}</td>
     `;
-    tr.querySelector("button").onclick = async () => {
-      await api(`/api/requests/${item.id}/adapted`, {
-        method: "PATCH",
-        body: JSON.stringify({ adapted: false })
-      });
-      await loadRequests();
-      await loadStats();
-      renderRequests();
-      renderStats();
-    };
+    bindRowActionMenu(tr, item, "adapted");
     $("adaptedBody").appendChild(tr);
   }
+}
+
+function rowActionMenuHtml(item, mode) {
+  const key = `${mode}:${item.id}`;
+  const isAdapted = mode === "adapted";
+  const menuItems = [
+    ["details", t("details")],
+    ...(isAdapted ? [["category", t("editCategory")]] : []),
+    ["appfilter", t("copyAppfilter")],
+    ["drawable", t("copyDrawable")],
+    ["iconpack", t("copyIconPack")],
+    ["custom", t("customCopy")]
+  ];
+  return `
+    <div class="action-menu-wrap" data-menu-key="${escapeHtml(key)}">
+      <div class="${isAdapted ? "remove-action" : "split-action"}">
+        <button class="action-main" type="button">
+          <span class="nav-icon">${iconSvg(isAdapted ? "minus" : "plus")}</span>
+          <span>${isAdapted ? t("remove") : t("add")}</span>
+        </button>
+        <button class="action-toggle" type="button" aria-label="${escapeHtml(t("moreFilters"))}">
+          <span class="nav-icon">${iconSvg("chevron-down")}</span>
+        </button>
+      </div>
+      <div class="row-menu" ${state.openMenuKey === key ? "" : "hidden"}>
+        ${menuItems.map(([action, label]) => `
+          <button class="row-menu-item" type="button" data-row-action="${action}">
+            <span class="nav-icon">${iconSvg(menuIcon(action))}</span>
+            <span>${escapeHtml(label)}</span>
+          </button>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function bindRowActionMenu(root, item, mode) {
+  const key = `${mode}:${item.id}`;
+  root.querySelector(".action-main").onclick = async () => {
+    await setRequestAdapted(item.id, mode !== "adapted");
+  };
+  root.querySelector(".action-toggle").onclick = (event) => {
+    event.stopPropagation();
+    state.openMenuKey = state.openMenuKey === key ? "" : key;
+    renderRequests();
+  };
+  root.querySelectorAll("[data-row-action]").forEach((button) => {
+    button.onclick = async (event) => {
+      event.stopPropagation();
+      await handleRowMenuAction(item, button.dataset.rowAction);
+    };
+  });
+}
+
+async function handleRowMenuAction(item, action) {
+  state.openMenuKey = "";
+  if (action === "details") {
+    state.selectedDatabaseId = "";
+    toast(`${itemName(item)} · ${item.package_name}`);
+    renderRequests();
+    return;
+  }
+  if (action === "category") {
+    const category = prompt(t("editCategory"), item.category || "无分类");
+    if (!category) {
+      renderRequests();
+      return;
+    }
+    await api(`/api/requests/${item.id}/category`, {
+      method: "PATCH",
+      body: JSON.stringify({ category })
+    });
+    await loadRequests();
+    toast(t("permissionUpdated"));
+    renderRequests();
+    return;
+  }
+  if (action === "custom") {
+    const template = prompt(t("customCopyPrompt"), "{name} {package} {activity} {drawable}");
+    if (!template) {
+      renderRequests();
+      return;
+    }
+    const values = {
+      name: itemName(item),
+      package: item.package_name,
+      activity: item.main_activity,
+      drawable: drawableName(item)
+    };
+    await copyText(template.replace(/\{(name|package|activity|drawable)\}/g, (_, key) => values[key] || ""));
+    toast(t("copied"));
+    renderRequests();
+    return;
+  }
+  await copyText(copyTextForItem(item, action));
+  toast(t("copied"));
+  renderRequests();
+}
+
+async function setRequestAdapted(requestId, adapted) {
+  await api(`/api/requests/${requestId}/adapted`, {
+    method: "PATCH",
+    body: JSON.stringify({ adapted })
+  });
+  await loadRequests();
+  await loadStats();
+  renderRequests();
+  renderStats();
+}
+
+function menuIcon(action) {
+  return {
+    details: "info",
+    category: "tag",
+    appfilter: "copy",
+    drawable: "copy",
+    iconpack: "copy",
+    custom: "copy"
+  }[action] || "copy";
 }
 
 function drawableName(item) {
@@ -1184,6 +1544,9 @@ function appAvatar(item) {
 }
 
 function databaseAvatar(item, size = "small") {
+  if (item.iconDataUrl) {
+    return `<span class="database-avatar ${size} has-image"><img src="${escapeHtml(item.iconDataUrl)}" alt=""></span>`;
+  }
   const name = item.localizedName || item.defaultName || item.packageName || "?";
   const letter = name.trim().slice(0, 1).toUpperCase();
   const seed = [...String(item.packageName || name)].reduce((sum, char) => sum + char.charCodeAt(0), 0);
@@ -1201,16 +1564,24 @@ function databaseAvatar(item, size = "small") {
 function renderDatabase() {
   if (!state.user) return;
   $("databaseSearch").value = state.databaseQuery;
-  $("filterAppfilterBtn").classList.toggle("active", state.databaseFilter === "appfilter");
-  $("filterDrawableBtn").classList.toggle("active", state.databaseFilter === "drawable");
-  $("filterIconPackBtn").classList.toggle("active", state.databaseFilter === "iconpack");
-  $("databaseSortBtn").classList.toggle("active", state.databaseSortAsc);
+  const hasSelection = state.selectedDatabaseIds.size > 0;
+  $("databaseSelectedCount").hidden = !hasSelection;
+  $("databaseSelectedCount").textContent = state.lang === "zh" ? `已选择 ${state.selectedDatabaseIds.size} 项` : `${state.selectedDatabaseIds.size} selected`;
+  $("filterAppfilterBtn").disabled = !hasSelection;
+  $("filterDrawableBtn").disabled = !hasSelection;
+  $("filterIconPackBtn").disabled = !hasSelection;
+  $("filterAppfilterBtn").classList.toggle("active", hasSelection);
+  $("filterDrawableBtn").classList.toggle("active", false);
+  $("filterIconPackBtn").classList.toggle("active", false);
+  $("filterAppfilterBtn").classList.toggle("copy-ready", hasSelection);
+  $("filterDrawableBtn").classList.toggle("copy-ready", hasSelection);
+  $("filterIconPackBtn").classList.toggle("copy-ready", hasSelection);
+  $("databaseSortBtn").classList.toggle("active", state.databaseSortMode === "name");
 
-  const query = state.databaseQuery.toLowerCase();
-  const rows = state.databaseRows.filter((item) => {
-    const blob = `${item.localizedName} ${item.defaultName} ${item.packageName} ${item.mainActivity} ${item.drawable} ${item.iconPackName}`.toLowerCase();
-    return !query || blob.includes(query);
-  });
+  const rows = visibleDatabaseRows();
+  const allVisibleSelected = rows.length > 0 && rows.every((item) => state.selectedDatabaseIds.has(item.id));
+  $("databaseSelectAllBtn").textContent = allVisibleSelected ? t("deselectAll") : t("selectAll");
+  renderDatabaseCopyMenu();
 
   $("databaseList").innerHTML = "";
   if (!rows.length) {
@@ -1218,10 +1589,11 @@ function renderDatabase() {
   }
   for (const item of rows) {
     const active = item.id === state.selectedDatabaseId;
+    const selected = state.selectedDatabaseIds.has(item.id);
     const div = document.createElement("article");
-    div.className = `database-card${active ? " active" : ""}`;
+    div.className = `database-card${active ? " active" : ""}${selected ? " selected" : ""}`;
     div.innerHTML = `
-      <span class="database-check" aria-hidden="true"></span>
+      <button class="database-check" type="button" aria-label="选择 ${escapeHtml(item.localizedName || item.defaultName || item.packageName)}">${selected ? "✓" : ""}</button>
       ${databaseAvatar(item)}
       <button class="database-main" type="button">
         <strong>${escapeHtml(item.localizedName || item.defaultName || item.packageName)}</strong>
@@ -1230,6 +1602,14 @@ function renderDatabase() {
     `;
     div.querySelector(".database-main").onclick = () => {
       state.selectedDatabaseId = item.id;
+      renderDatabase();
+    };
+    div.querySelector(".database-check").onclick = () => {
+      if (state.selectedDatabaseIds.has(item.id)) {
+        state.selectedDatabaseIds.delete(item.id);
+      } else {
+        state.selectedDatabaseIds.add(item.id);
+      }
       renderDatabase();
     };
     $("databaseList").appendChild(div);
@@ -1246,6 +1626,182 @@ function renderDatabase() {
       renderDatabase();
     };
   }
+  const adaptedButton = $("databaseDetail").querySelector(".adapted-select");
+  if (adaptedButton && selected) {
+    adaptedButton.onclick = async () => {
+      const request = state.requests.find((item) => item.package_name === selected.packageName && item.main_activity === selected.mainActivity);
+      if (request) {
+        await setRequestAdapted(request.id, !selected.adapted);
+      } else {
+        toast(t("categoryComingSoon"));
+      }
+    };
+  };
+}
+
+function visibleDatabaseRows() {
+  const query = state.databaseQuery.toLowerCase();
+  return sortDatabaseRows(state.databaseRows.filter((item) => {
+    const blob = `${item.localizedName} ${item.defaultName} ${item.packageName} ${item.mainActivity} ${item.drawable} ${item.iconPackName}`.toLowerCase();
+    return !query || blob.includes(query);
+  }));
+}
+
+function toggleVisibleDatabaseSelection() {
+  const rows = visibleDatabaseRows();
+  const allVisibleSelected = rows.length > 0 && rows.every((item) => state.selectedDatabaseIds.has(item.id));
+  if (allVisibleSelected) {
+    rows.forEach((item) => state.selectedDatabaseIds.delete(item.id));
+  } else {
+    rows.forEach((item) => state.selectedDatabaseIds.add(item.id));
+  }
+  renderDatabase();
+}
+
+function renderDatabaseCopyMenu() {
+  const moreButton = $("filterMoreBtn");
+  let wrap = moreButton.closest(".database-copy-menu-wrap");
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.className = "database-copy-menu-wrap";
+    moreButton.parentElement.insertBefore(wrap, moreButton);
+    wrap.appendChild(moreButton);
+  }
+  let menu = wrap.querySelector(".database-copy-menu");
+  if (!menu) {
+    menu = document.createElement("div");
+    menu.className = "database-copy-menu";
+    wrap.appendChild(menu);
+  }
+  menu.hidden = !state.databaseCopyMenuOpen;
+  menu.innerHTML = `
+    <button class="row-menu-item" type="button" data-copy-mode="plain">
+      <span class="nav-icon">${iconSvg("copy")}</span>
+      <span>${escapeHtml(t("plainText"))}</span>
+    </button>
+    <button class="row-menu-item" type="button" data-copy-mode="custom">
+      <span class="nav-icon">${iconSvg("copy")}</span>
+      <span>${escapeHtml(t("custom"))}</span>
+    </button>
+  `;
+  menu.querySelector('[data-copy-mode="plain"]').onclick = (event) => {
+    event.stopPropagation();
+    handleDatabasePlainTextCopy();
+  };
+  menu.querySelector('[data-copy-mode="custom"]').onclick = (event) => {
+    event.stopPropagation();
+    openCustomTemplateModal();
+  };
+}
+
+function sortDatabaseRows(rows) {
+  const collator = new Intl.Collator(["en", "zh-Hans-u-co-pinyin"], {
+    numeric: true,
+    sensitivity: "base"
+  });
+  return [...rows].sort((a, b) => {
+    if (state.databaseSortMode === "name") {
+      const nameResult = collator.compare(sortableAppName(a), sortableAppName(b));
+      if (nameResult) return nameResult;
+      return collator.compare(a.packageName || "", b.packageName || "");
+    }
+    return (b.requestCount || 0) - (a.requestCount || 0)
+      || collator.compare(sortableAppName(a), sortableAppName(b));
+  });
+}
+
+function sortableAppName(item) {
+  return String(item.localizedName || item.defaultName || item.packageName || "").trim();
+}
+
+function openCustomTemplateModal() {
+  if (!state.selectedDatabaseIds.size) return toast(state.lang === "zh" ? "请先选择应用" : "Select apps first");
+  state.databaseCopyMenuOpen = false;
+  $("customTemplateInput").value = state.customTemplate;
+  $("trimSpacesToggle").checked = state.trimTemplateSpaces;
+  $("removeBlankLinesToggle").checked = state.removeTemplateBlankLines;
+  $("customTemplateModal").hidden = false;
+  renderCustomTemplatePreview();
+  setTimeout(() => $("customTemplateInput").focus(), 0);
+  renderDatabase();
+}
+
+function closeCustomTemplateModal() {
+  $("customTemplateModal").hidden = true;
+}
+
+function renderCustomTemplatePreview() {
+  $("customTemplatePreview").textContent = renderCustomTemplate();
+  $("customTemplateCount").textContent = t("selectedApps", selectedDatabaseRows().length);
+}
+
+function renderCustomTemplate() {
+  const apps = selectedDatabaseRows().map(templateAppData);
+  let output = state.customTemplate;
+  const loopStart = state.customTemplate.indexOf("#for(app in apps):");
+  const loopEnd = state.customTemplate.lastIndexOf("#endfor");
+  if (loopStart >= 0 && loopEnd > loopStart) {
+    const before = state.customTemplate.slice(0, loopStart);
+    const block = state.customTemplate.slice(loopStart + "#for(app in apps):".length, loopEnd);
+    const after = state.customTemplate.slice(loopEnd + "#endfor".length);
+    output = `${before}${apps.map((app) => renderTemplateBlock(block, app)).join("")}${after}`;
+  } else {
+    output = apps.map((app) => renderTemplateBlock(state.customTemplate, app)).join("\n");
+  }
+  if (state.trimTemplateSpaces) {
+    output = output.split("\n").map((line) => line.trim()).join("\n");
+  }
+  if (state.removeTemplateBlankLines) {
+    output = output.split("\n").filter((line) => line.trim()).join("\n");
+  }
+  return output.trim();
+}
+
+function renderTemplateBlock(block, app) {
+  return block
+    .replace(/#for\(name in app\.localizedNames\):([\s\S]*?)#endfor/g, (_, nameBlock) => (
+      app.localizedNames.map((name) => nameBlock.replace(/#\(name\.([^)]+)\)/g, (match, key) => name[key] ?? "")).join("")
+    ))
+    .replace(/#if\([^)]+\):|#endif/g, "")
+    .replace(/#\(app\.([^)]+)\)/g, (match, key) => app[key] ?? "");
+}
+
+function templateAppData(item) {
+  const packageName = item.packageName || "";
+  const mainActivity = item.mainActivity || "";
+  const autoDrawable = item.drawable || sanitizeDrawable(item.defaultName || item.localizedName || packageName);
+  return {
+    name: item.localizedName || item.defaultName || packageName,
+    packageName,
+    mainActivity,
+    autoDrawable,
+    localizedNames: [{
+      languageCode: "--",
+      name: item.localizedName || item.defaultName || packageName,
+      autoDrawable
+    }]
+  };
+}
+
+async function submitPasswordRecovery() {
+  const accountName = $("recoveryAccount").value.trim();
+  const phone = $("recoveryPhone").value.trim();
+  if (!accountName || !phone) return toast(t("recoveryRequired"));
+  $("submitRecoveryBtn").disabled = true;
+  try {
+    await api("/api/password-recovery", {
+      method: "POST",
+      body: JSON.stringify({ accountName, phone })
+    });
+    $("passwordRecoveryPanel").hidden = true;
+    $("recoveryAccount").value = "";
+    $("recoveryPhone").value = "";
+    toast(t("recoverySubmitted"));
+  } catch (error) {
+    toast(error.message);
+  } finally {
+    $("submitRecoveryBtn").disabled = false;
+  }
 }
 
 function databaseDetailHtml(item) {
@@ -1258,7 +1814,7 @@ function databaseDetailHtml(item) {
     ${databaseAvatar(item, "large")}
     <button class="adapted-select" type="button">
       <span>${item.adapted ? "标记为已适配" : "标记为未适配"}</span>
-      <span>⌄</span>
+      <span class="nav-icon">${iconSvg("chevron-down")}</span>
     </button>
     <dl class="detail-list">
       <dt>Package</dt>
@@ -1296,6 +1852,13 @@ function renderUploadPage() {
   $("uploadFileName").textContent = state.uploadFile ? state.uploadFile.name : "将 ZIP 文件拖放到此处";
   $("uploadFileHint").textContent = state.uploadFile ? `${formatFileSize(state.uploadFile.size)} · 可点击重新选择` : "或点击选择文件";
   $("submitUploadBtn").disabled = !state.uploadFile || !state.uploadVersionId;
+}
+
+function renderManagementCards() {
+  if (!state.user) return;
+  $("collaboratorName").textContent = state.user.name || "-";
+  $("collaboratorEmail").textContent = displayAccount(state.user.email);
+  $("collaboratorAvatar").textContent = (state.user.name || state.user.email || "A").trim().slice(0, 1).toUpperCase();
 }
 
 function selectedUploadPack() {
@@ -1366,7 +1929,8 @@ function renderAdminUsers() {
     tr.innerHTML = `
       <td class="mono">${escapeHtml(displayAccount(user.email))}</td>
       <td>${escapeHtml(user.name)}</td>
-      <td>${t("passwordEncrypted")}</td>
+      <td class="mono recovery-cell">${recoveryHtml(user.recovery)}</td>
+      <td>${passwordCellHtml(user)}</td>
       <td>${editablePermission
         ? `<input class="permission-input" data-user-id="${escapeHtml(user.id)}" value="${escapeHtml(user.permissionLevel || "普通会员")}" aria-label="权限级别">`
         : `<span class="permission-pill">${escapeHtml(user.permissionLevel || "普通会员")}</span>`}</td>
@@ -1385,6 +1949,29 @@ function renderAdminUsers() {
     };
     input.onblur = () => updatePermission(input.dataset.userId, input.value.trim());
   });
+  document.querySelectorAll(".reset-password-btn").forEach((button) => {
+    button.onclick = () => resetUserPassword(button.dataset.userId);
+  });
+}
+
+function passwordCellHtml(user) {
+  const digest = user.passwordDigest ? `<small>${escapeHtml(t("passwordDigest"))}: ${escapeHtml(user.passwordDigest)}</small>` : "";
+  const canReset = canEditPermission() && String(user.email || "").toLowerCase() !== OWNER_EMAIL;
+  return `
+    <div class="password-cell">
+      <span>${escapeHtml(t("passwordEncrypted"))}</span>
+      ${digest}
+      ${canReset ? `<button class="text-btn reset-password-btn" type="button" data-user-id="${escapeHtml(user.id)}">${escapeHtml(t("resetPassword"))}</button>` : ""}
+    </div>
+  `;
+}
+
+function recoveryHtml(recovery) {
+  if (!recovery) return `<span class="muted-cell">${escapeHtml(t("recoveryEmpty"))}</span>`;
+  return `
+    <strong>${escapeHtml(recovery.phone || "-")}</strong>
+    <small>${escapeHtml(recovery.accountName || "-")} · ${escapeHtml(formatDateTime(recovery.createdAt))} · ${escapeHtml(recovery.ip || "-")}</small>
+  `;
 }
 
 async function updatePermission(userId, permissionLevel) {
@@ -1405,6 +1992,24 @@ async function updatePermission(userId, permissionLevel) {
   } catch (error) {
     toast(error.message);
     renderAdminUsers();
+  }
+}
+
+async function resetUserPassword(userId) {
+  const password = prompt(t("resetPasswordPrompt"), "");
+  if (!password) return;
+  if (password.length < 8) return toast(t("passwordTooShort"));
+  try {
+    await api(`/api/admin/users/${userId}/password`, {
+      method: "PATCH",
+      headers: { "x-admin-token": state.adminToken },
+      body: JSON.stringify({ password })
+    });
+    await loadAdminUsers();
+    renderAdminUsers();
+    toast(t("passwordUpdated"));
+  } catch (error) {
+    toast(error.message);
   }
 }
 
@@ -1457,11 +2062,20 @@ function iconSvg(name) {
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
     panel: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M10 4v16"/>',
     shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/>',
+    book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15Z"/><path d="M8 7h8"/><path d="M8 11h6"/>',
     check: '<path d="m20 6-11 11-5-5"/>',
     search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
     upload: '<path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M20 16v4H4v-4"/>',
+    download: '<path d="M12 4v12"/><path d="m7 11 5 5 5-5"/><path d="M20 20H4"/>',
     sort: '<path d="M8 4v16"/><path d="m4 8 4-4 4 4"/><path d="M16 20V4"/><path d="m12 16 4 4 4-4"/>',
-    "chevron-down": '<path d="m6 9 6 6 6-6"/>'
+    "chevron-down": '<path d="m6 9 6 6 6-6"/>',
+    "chevron-right": '<path d="m9 18 6-6-6-6"/>',
+    minus: '<path d="M5 12h14"/>',
+    copy: '<rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+    tag: '<path d="M20 12 12 20 4 12V4h8l8 8Z"/><path d="M8 8h.01"/>',
+    sparkles: '<path d="m12 3 1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6L12 3Z"/><path d="m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/>',
+    logout: '<path d="M10 17 5 12l5-5"/><path d="M5 12h12"/><path d="M14 5h4a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-4"/>'
   };
   return `<svg ${attrs}>${paths[name] || paths.cube}</svg>`;
 }
