@@ -577,7 +577,6 @@ async function handleCreateAppInfo(request, env) {
         default_name = excluded.default_name,
         language_code = excluded.language_code,
         system_app = excluded.system_app,
-        request_count = request_count + 1,
         last_requested_at = excluded.last_requested_at
     `).bind(
       crypto.randomUUID(),
