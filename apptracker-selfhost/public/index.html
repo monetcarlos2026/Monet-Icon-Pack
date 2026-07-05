@@ -3,17 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Monet AppTracker</title>
+  <title>Monet 应用追踪器</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <aside class="sidebar">
     <div class="brand">
       <a class="logo-link" href="https://monet-apptracker.pages.dev" title="返回首页">
-        <img class="logo" src="/logo.png" alt="AppTracker logo">
+        <img class="logo" src="/logo.png" alt="应用追踪器 logo">
       </a>
       <div>
-        <strong>AppTracker</strong>
+        <strong>应用追踪器</strong>
         <span>控制面板</span>
       </div>
     </div>
@@ -39,6 +39,7 @@
       <input id="email" type="email" placeholder="邮箱">
       <input id="name" type="text" placeholder="昵称，注册时使用">
       <input id="password" type="password" placeholder="密码，至少 8 位">
+      <input id="registerPhone" type="tel" placeholder="手机号，注册时必填">
       <div class="row">
         <button id="loginBtn">登录</button>
         <button id="registerBtn" class="secondary">注册</button>
@@ -126,7 +127,7 @@
       <header class="home-header">
         <button id="homeBrandBtn" class="home-brand" type="button" title="返回首页">
           <span class="home-logo"><span class="nav-icon" data-icon="cube"></span></span>
-          <strong>AppTracker</strong>
+          <strong>应用追踪器</strong>
         </button>
         <div class="home-actions">
           <button id="openUploadBtn" class="header-action" type="button">
@@ -168,7 +169,10 @@
         </div>
 
         <div class="database-layout">
-          <div id="databaseList" class="database-list"></div>
+          <div class="database-list-wrap">
+            <div id="databaseList" class="database-list"></div>
+            <button id="databaseLoadMoreBtn" class="load-more-btn" type="button" hidden>加载更多</button>
+          </div>
           <aside id="databaseDetail" class="database-detail" hidden></aside>
         </div>
       </div>
@@ -178,7 +182,7 @@
       <header class="home-header">
         <button id="uploadBrandBtn" class="home-brand" type="button" title="返回首页">
           <span class="home-logo"><span class="nav-icon" data-icon="cube"></span></span>
-          <strong>AppTracker</strong>
+          <strong>应用追踪器</strong>
         </button>
         <div class="home-actions">
           <button id="uploadTopBtn" class="header-action active" type="button">
@@ -278,6 +282,7 @@
             <th>账号</th>
             <th>昵称</th>
             <th>找回密码</th>
+            <th>手机号</th>
             <th>密码</th>
             <th>权限级别</th>
             <th>图标包数</th>

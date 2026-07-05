@@ -37,8 +37,7 @@ export default {
       return withCors(json({ error: error.message || "Internal error" }, error.status || 500));
     }
   }
-}
-
+};
 async function handleApi(request, env, url) {
   if (url.pathname === "/api/register" && request.method === "POST") return register(request, env);
   if (url.pathname === "/api/login" && request.method === "POST") return login(request, env);
@@ -46,11 +45,11 @@ async function handleApi(request, env, url) {
   if (url.pathname === "/api/password-recovery" && request.method === "POST") return submitPasswordRecovery(request, env);
   if (url.pathname === "/api/admin/login" && request.method === "POST") return adminLogin(request, env);
   if (url.pathname === "/api/admin/users" && request.method === "GET") return listAdminUsers(request, env);
+  if (url.pathname === "/api/database" && request.method === "GET") return listDatabase(request, env, url.searchParams);
 
   const user = await requireUser(request, env);
 
   if (url.pathname === "/api/me" && request.method === "GET") return json({ user });
-  if (url.pathname === "/api/database" && request.method === "GET") return listDatabase(request, env, user.id, url.searchParams);
   if (url.pathname === "/api/upload-app-info" && request.method === "POST") return uploadAppInfo(request, env, user);
   if (url.pathname.match(/^\/api\/admin\/users\/[^/]+\/permission$/) && request.method === "PATCH") {
     return updateUserPermission(request, env, user, url.pathname.split("/")[4]);
@@ -100,7 +99,9 @@ async function register(request, env) {
   const email = String(body.email || "").trim().toLowerCase();
   const name = String(body.name || "").trim() || email.split("@")[0];
   const password = String(body.password || "");
+  const phone = String(body.phone || "").trim();
   if (!email.includes("@") || password.length < 8) throw httpError("Email or password is invalid", 400);
+  if (!phone || phone.length > 40) throw httpError("Phone number is required", 400);
 
   const device = await deviceKeys(request);
   const registerAttempts = await Promise.all(device.keys.map((key) => rateLimitCount(env, "register_device", key)));
@@ -113,8 +114,8 @@ async function register(request, env) {
 
   const id = crypto.randomUUID();
   await env.DB.batch([
-    env.DB.prepare("INSERT INTO users (id, email, name, password_hash, permission_level) VALUES (?, ?, ?, ?, ?)")
-      .bind(id, email, name, await passwordHash(password), defaultPermissionForEmail(email)),
+    env.DB.prepare("INSERT INTO users (id, email, name, phone, password_hash, permission_level) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind(id, email, name, phone, await passwordHash(password), defaultPermissionForEmail(email)),
     ...device.keys.map((key) => rateLimitIncrementStatement(env, "register_device", key))
   ]);
   await recordUserAccess(env, id, request);
@@ -209,6 +210,7 @@ async function listAdminUsers(request, env) {
       users.id,
       users.email,
       users.name,
+      users.phone,
       users.password_hash,
       COALESCE(users.permission_level, '${DEFAULT_PERMISSION_LEVEL}') AS permissionLevel,
       users.created_at AS createdAt,
@@ -242,6 +244,7 @@ async function listAdminUsers(request, env) {
       id: user.id,
       email: user.email,
       name: user.name,
+      phone: user.phone || "",
       permissionLevel: user.permissionLevel || DEFAULT_PERMISSION_LEVEL,
       createdAt: user.createdAt,
       lastIp: displayAdminIp(user, canViewSensitiveIp),
@@ -588,11 +591,18 @@ async function exportAppfilter(request, env, userId, versionId) {
   });
 }
 
-async function listDatabase(request, env, userId, params) {
-  await enforceReadLimit(request, env, userId, "database", DATABASE_READ_LIMIT_PER_MINUTE);
+async function listDatabase(request, env, params) {
+  const viewer = await optionalUser(request, env);
+  const rateSubject = viewer?.id || await sha256Hex(`public:${clientIp(request)}`);
+  await enforceReadLimit(request, env, rateSubject, "database", DATABASE_READ_LIMIT_PER_MINUTE);
   const q = `%${String(params.get("q") || "").trim()}%`;
   const type = String(params.get("type") || "appfilter").toLowerCase();
-  const sortDirection = params.get("sort") === "asc" ? "ASC" : "DESC";
+  const sortMode = params.get("sort") === "name" ? "name" : "count";
+  const limit = Math.min(Math.max(Number(params.get("limit") || 30), 1), 30);
+  const offset = Math.max(Number(params.get("offset") || 0), 0);
+  const orderBy = sortMode === "name"
+    ? "ORDER BY appName COLLATE NOCASE ASC, packageName COLLATE NOCASE ASC"
+    : "ORDER BY requestCount DESC, appName COLLATE NOCASE ASC";
   const typeWhere = type === "drawable"
     ? "AND app_requests.adapted = 1"
     : type === "iconpack"
@@ -622,8 +632,8 @@ async function listDatabase(request, env, userId, params) {
       FROM app_requests
       JOIN versions ON versions.id = app_requests.version_id
       JOIN icon_packs ON icon_packs.id = versions.icon_pack_id
-      WHERE icon_packs.user_id = ?
-        AND (
+      WHERE ${viewer ? "icon_packs.user_id = ? AND" : ""}
+        (
           app_requests.localized_name LIKE ?
           OR app_requests.default_name LIKE ?
           OR app_requests.package_name LIKE ?
@@ -636,6 +646,7 @@ async function listDatabase(request, env, userId, params) {
       id,
       localized_name AS localizedName,
       default_name AS defaultName,
+      COALESCE(NULLIF(localized_name, ''), NULLIF(default_name, ''), package_name) AS appName,
       package_name AS packageName,
       main_activity AS mainActivity,
       grouped_request_count AS requestCount,
@@ -648,11 +659,14 @@ async function listDatabase(request, env, userId, params) {
       version_name AS versionName
     FROM visible_requests
     WHERE row_number = 1
-    ORDER BY requestCount ${sortDirection}, last_requested_at ${sortDirection}
-    LIMIT 120
-  `).bind(userId, q, q, q, q, q).all();
+    ${orderBy}
+    LIMIT ? OFFSET ?
+  `).bind(...(viewer ? [viewer.id] : []), q, q, q, q, q, limit + 1, offset).all();
+  const results = rows.results || [];
+  const items = results.slice(0, limit);
   return json({
-    items: (rows.results || []).map((item) => ({
+    hasMore: results.length > limit,
+    items: items.map((item) => ({
       ...item,
       drawable: sanitizeDrawable(item.defaultName || item.localizedName || item.packageName),
       adapted: !!item.adapted,

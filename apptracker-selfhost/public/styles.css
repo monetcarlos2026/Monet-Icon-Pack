@@ -381,6 +381,14 @@ main {
   background: var(--soft);
 }
 
+body.is-public-home .header-theme-btn {
+  display: inline-flex;
+}
+
+body.is-authenticated .header-theme-btn {
+  display: none;
+}
+
 .home-avatar {
   display: inline-grid;
   place-items: center;
@@ -537,13 +545,39 @@ main {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.database-layout:not(.has-detail) .database-list {
+.database-layout:not(.has-detail) .database-list-wrap {
   max-width: 860px;
+}
+
+body.is-public-home .database-layout:not(.has-detail) .database-list-wrap {
+  max-width: none;
+}
+
+.database-list-wrap {
+  display: grid;
+  gap: 24px;
 }
 
 .database-list {
   display: grid;
   gap: 20px;
+}
+
+.load-more-btn {
+  justify-self: center;
+  min-width: 140px;
+  min-height: 52px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 900;
+  box-shadow: 0 6px 18px var(--shadow);
+}
+
+.load-more-btn:disabled {
+  opacity: .62;
+  cursor: wait;
 }
 
 .database-card {
@@ -556,6 +590,10 @@ main {
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--surface);
+}
+
+body.is-public-home .database-card {
+  grid-template-columns: 66px minmax(0, 1fr);
 }
 
 .database-card.active {
@@ -697,6 +735,11 @@ main {
   font-weight: 400;
 }
 
+.adapted-select-wrap {
+  position: relative;
+  width: 100%;
+}
+
 .adapted-select {
   width: 100%;
   min-height: 52px;
@@ -709,9 +752,52 @@ main {
   overflow: hidden;
 }
 
-.adapted-select span {
+.adapted-main,
+.adapted-toggle {
+  min-height: 52px;
   display: grid;
   place-items: center;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 0 14px;
+}
+
+.adapted-toggle {
+  border-left: 1px solid var(--line);
+}
+
+.adapted-toggle .nav-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--text);
+}
+
+.adapted-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 24;
+  min-width: 190px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 16px 40px var(--shadow);
+}
+
+.adapted-menu-item {
+  width: 100%;
+  min-height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+}
+
+.adapted-menu-item:hover {
+  background: var(--soft);
 }
 
 .adapted-select span + span {
@@ -1190,6 +1276,15 @@ pre {
 
 .create-pack {
   padding: 0 4px;
+}
+
+body.pack-list-focused .create-pack,
+body.pack-list-focused .side-actions {
+  display: none;
+}
+
+body.pack-list-focused .pack-list {
+  max-height: calc(100vh - 180px);
 }
 
 .create-pack input {
@@ -2016,13 +2111,19 @@ button:disabled {
     font-size: 14px;
   }
   body.is-public-home .database-layout,
-  body.is-public-home .database-layout.has-detail,
-  body.is-authenticated .database-layout,
-  body.is-authenticated .database-layout.has-detail {
+  body.is-public-home .database-layout.has-detail {
     display: grid;
     grid-template-columns: 1fr;
     gap: 14px;
     padding-top: 14px;
+  }
+  body.is-authenticated .database-layout {
+    gap: 18px;
+    padding-top: 14px;
+  }
+  body.is-authenticated .database-layout.has-detail {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+    gap: 18px;
   }
   body.is-public-home .database-card,
   body.is-authenticated .database-card {
@@ -2030,6 +2131,9 @@ button:disabled {
     grid-template-columns: 22px 48px 1fr;
     gap: 12px;
     padding: 14px 12px;
+  }
+  body.is-public-home .database-card {
+    grid-template-columns: 48px minmax(0, 1fr);
   }
   body.is-public-home .database-check,
   body.is-authenticated .database-check {
@@ -2059,8 +2163,11 @@ button:disabled {
   }
   body.is-public-home .database-detail,
   body.is-authenticated .database-detail {
-    position: static;
     padding: 22px 18px;
+  }
+  body.is-authenticated .database-detail {
+    position: sticky;
+    top: 14px;
   }
   body.is-public-home .detail-head h2,
   body.is-authenticated .detail-head h2 {
@@ -2134,6 +2241,12 @@ button:disabled {
   body.is-authenticated .segment-tab {
     min-width: 0;
     flex: 1 1 0;
+  }
+  body.is-authenticated .database-layout.has-detail {
+    grid-template-columns: 1fr;
+  }
+  body.is-authenticated .database-detail {
+    position: static;
   }
   body.is-public-home .home-brand strong,
   body.is-authenticated .home-brand strong {

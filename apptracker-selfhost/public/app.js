@@ -15,15 +15,20 @@ const state = {
   selectedPackIds: new Set(),
   multiSelectPacks: false,
   sidebarCollapsed: localStorage.getItem("sidebarCollapsed") === "1",
-  packsCollapsed: false,
+  packsCollapsed: true,
   requests: [],
   databaseRows: [],
   databaseFilter: "appfilter",
   databaseQuery: "",
+  databaseDraftQuery: "",
   databaseSortMode: "count",
+  databasePageSize: 30,
+  databaseHasMore: false,
+  databaseLoadingMore: false,
   selectedDatabaseId: "",
   selectedDatabaseIds: new Set(),
   openMenuKey: "",
+  detailAdaptedMenuOpen: false,
   databaseCopyMenuOpen: false,
   customTemplate: localStorage.getItem("customTemplate") || `#for(app in apps):
 <item component="ComponentInfo{#(app.packageName)/#(app.mainActivity)}" drawable="#(app.autoDrawable)"/>
@@ -39,6 +44,7 @@ const $ = (id) => document.getElementById(id);
 
 const I18N = {
   zh: {
+    productName: "应用追踪器",
     controlPanel: "控制面板",
     general: "常规",
     stats: "统计",
@@ -48,12 +54,16 @@ const I18N = {
     email: "邮箱",
     namePlaceholder: "昵称，注册时使用",
     passwordPlaceholder: "密码，至少 8 位",
+    phonePlaceholder: "手机号，注册时必填",
     login: "登录",
     register: "注册",
+    phoneRequired: "请输入手机号",
+    loginToOperate: "请先登录后操作",
     forgotPassword: "找回密码",
     recoveryAccountPlaceholder: "账号名 / 邮箱",
     recoveryPhonePlaceholder: "手机号",
     recoveryInfo: "找回密码",
+    phone: "手机号",
     recoveryEmpty: "无",
     recoverySubmitted: "找回密码申请已提交",
     recoveryRequired: "请输入手机号和账号名",
@@ -75,6 +85,8 @@ const I18N = {
     upload: "上传",
     search: "搜索",
     searchHome: "输入搜索内容...",
+    loadMore: "加载更多",
+    loadingMore: "加载中...",
     appfilterTab: "Appfilter",
     drawableTab: "Drawable",
     iconPackTab: "图标包",
@@ -182,6 +194,8 @@ const I18N = {
     customCopy: "自定义复制",
     customCopyPrompt: "请输入自定义复制模板，可使用 {name} {package} {activity} {drawable}",
     copied: "已复制",
+    markedAdapted: "已标记为已适配",
+    markedUnadapted: "已标记为未适配",
     categoryComingSoon: "分类编辑功能已预留",
     importExportReady: "可使用下方导入框导入，导出将下载 appfilter.xml",
     collaborators: "协作者",
@@ -196,6 +210,7 @@ const I18N = {
     recentItem: (packName, packageName, count) => `${packName} · ${packageName} · ${count || 1} 次`
   },
   en: {
+    productName: "AppTracker",
     controlPanel: "Dashboard",
     general: "General",
     stats: "Stats",
@@ -205,12 +220,16 @@ const I18N = {
     email: "Email",
     namePlaceholder: "Nickname for registration",
     passwordPlaceholder: "Password, at least 8 characters",
+    phonePlaceholder: "Phone number, required for registration",
     login: "Sign in",
     register: "Sign up",
+    phoneRequired: "Enter phone number",
+    loginToOperate: "Sign in to operate",
     forgotPassword: "Recover password",
     recoveryAccountPlaceholder: "Account / email",
     recoveryPhonePlaceholder: "Phone number",
     recoveryInfo: "Recovery",
+    phone: "Phone",
     recoveryEmpty: "None",
     recoverySubmitted: "Recovery request submitted",
     recoveryRequired: "Enter phone number and account",
@@ -232,6 +251,8 @@ const I18N = {
     upload: "Upload",
     search: "Search",
     searchHome: "Search apps...",
+    loadMore: "Load more",
+    loadingMore: "Loading...",
     appfilterTab: "Appfilter",
     drawableTab: "Drawable",
     iconPackTab: "IconPack",
@@ -339,6 +360,8 @@ const I18N = {
     customCopy: "Custom copy",
     customCopyPrompt: "Enter a copy template. You can use {name} {package} {activity} {drawable}",
     copied: "Copied",
+    markedAdapted: "Marked adapted",
+    markedUnadapted: "Marked unadapted",
     categoryComingSoon: "Category editing is reserved",
     importExportReady: "Use the import field below, or export appfilter.xml",
     collaborators: "Collaborators",
@@ -389,6 +412,10 @@ function maskIpTail(ip) {
 }
 
 function canEditPermission() {
+  return String(state.user?.email || "").trim().toLowerCase() === OWNER_EMAIL && !!state.adminToken;
+}
+
+function canViewUserPhone() {
   return String(state.user?.email || "").trim().toLowerCase() === OWNER_EMAIL && !!state.adminToken;
 }
 
@@ -447,11 +474,19 @@ async function boot() {
       state.token = "";
     }
   }
+  if (!state.token) {
+    await loadDatabase().catch(() => {});
+  }
   render();
 }
 
 function applyLanguage() {
   document.documentElement.lang = state.lang === "zh" ? "zh-CN" : "en";
+  document.title = `Monet ${t("productName")}`;
+  document.querySelector(".brand strong").textContent = t("productName");
+  $("homeBrandBtn").querySelector("strong").textContent = t("productName");
+  $("uploadBrandBtn").querySelector("strong").textContent = t("productName");
+  document.querySelector(".logo").alt = `${t("productName")} logo`;
   document.querySelector(".brand span").textContent = t("controlPanel");
   document.querySelector(".nav-label").textContent = t("general");
   $("statsBtn").querySelector("span:last-child").textContent = t("stats");
@@ -461,6 +496,7 @@ function applyLanguage() {
   $("email").placeholder = t("email");
   $("name").placeholder = t("namePlaceholder");
   $("password").placeholder = t("passwordPlaceholder");
+  $("registerPhone").placeholder = t("phonePlaceholder");
   $("loginBtn").textContent = t("login");
   $("registerBtn").textContent = t("register");
   $("forgotPasswordBtn").textContent = t("forgotPassword");
@@ -538,7 +574,7 @@ function applyLanguage() {
 }
 
 function updateTableHeaders() {
-  setHeaders("#adminCard thead th", [t("account"), t("nickname"), t("recoveryInfo"), t("password"), t("permissionLevel"), t("iconPackCount"), t("accessIp"), t("lastAccess")]);
+  setHeaders("#adminCard thead th", [t("account"), t("nickname"), t("recoveryInfo"), t("phone"), t("password"), t("permissionLevel"), t("iconPackCount"), t("accessIp"), t("lastAccess")]);
   setHeaders("#versionsCard thead th", ["Version", t("createdAt"), t("actions")]);
   setHeaders("#requestsCard thead th", [t("appName"), "Package", "Activity", t("count"), ""]);
   setHeaders("#adaptedCard thead th", [t("appName"), "Package", "Activity", t("drawable"), t("category"), ""]);
@@ -554,6 +590,7 @@ function bindEvents() {
   $("themeBtn").onclick = toggleTheme;
   $("homeThemeBtn").onclick = toggleTheme;
   $("uploadThemeBtn").onclick = toggleTheme;
+  document.querySelector(".sidebar").addEventListener("wheel", containSidebarWheel, { passive: false });
 
   $("languageBtn").onclick = () => {
     state.lang = state.lang === "zh" ? "en" : "zh";
@@ -608,23 +645,26 @@ function bindEvents() {
     if (!state.user) openAuthPage();
   };
   $("databaseSearchBtn").onclick = () => {
-    state.databaseQuery = $("databaseSearch").value.trim();
+    state.databaseDraftQuery = $("databaseSearch").value.trim();
+    state.databaseQuery = state.databaseDraftQuery;
     loadDatabase().then(render);
   };
   $("databaseSearch").onkeydown = (event) => {
     if (event.key === "Enter") {
-      state.databaseQuery = $("databaseSearch").value.trim();
+      state.databaseDraftQuery = $("databaseSearch").value.trim();
+      state.databaseQuery = state.databaseDraftQuery;
       loadDatabase().then(render);
     }
   };
   $("databaseSearch").oninput = () => {
-    state.databaseQuery = $("databaseSearch").value.trim();
+    state.databaseDraftQuery = $("databaseSearch").value.trim();
     renderDatabase();
   };
   $("filterAppfilterBtn").onclick = () => handleDatabaseAction("appfilter");
   $("filterDrawableBtn").onclick = () => handleDatabaseAction("drawable");
   $("filterIconPackBtn").onclick = () => handleDatabaseAction("iconpack");
   $("databaseSelectAllBtn").onclick = toggleVisibleDatabaseSelection;
+  $("databaseLoadMoreBtn").onclick = () => loadMoreDatabase();
   $("filterMoreBtn").onclick = (event) => {
     event.stopPropagation();
     state.databaseCopyMenuOpen = !state.databaseCopyMenuOpen;
@@ -632,6 +672,7 @@ function bindEvents() {
   };
   $("databaseSortBtn").onclick = async () => {
     state.databaseSortMode = state.databaseSortMode === "count" ? "name" : "count";
+    await loadDatabase();
     render();
   };
   bindUploadEvents();
@@ -639,6 +680,7 @@ function bindEvents() {
   $("packCollapseBtn").onclick = () => {
     state.packsCollapsed = !state.packsCollapsed;
     renderPacks();
+    syncPackListFocus();
   };
 
   $("multiSelectBtn").onclick = () => {
@@ -677,6 +719,7 @@ function bindEvents() {
 
   $("registerBtn").onclick = async () => {
     if (warnPasswordTooShort()) return;
+    if (!$("registerPhone").value.trim()) return toast(t("phoneRequired"));
     setAuthLoading(true);
     try {
       const data = await api("/api/register", {
@@ -684,7 +727,8 @@ function bindEvents() {
         body: JSON.stringify({
           email: $("email").value,
           name: $("name").value,
-          password: $("password").value
+          password: $("password").value,
+          phone: $("registerPhone").value.trim()
         })
       });
       saveSession(data);
@@ -971,7 +1015,7 @@ async function loadRequests() {
 
 async function openDatabasePage(shouldRender = true) {
   state.view = "database";
-  if (state.user) await loadDatabase();
+  await loadDatabase();
   if (shouldRender) render();
 }
 
@@ -987,25 +1031,63 @@ async function openUploadPage() {
   render();
 }
 
-async function loadDatabase() {
-  if (!state.token) {
-    state.databaseRows = [];
-    state.selectedDatabaseId = "";
-    state.selectedDatabaseIds.clear();
-    return;
-  }
+async function loadDatabase({ append = false } = {}) {
+  if (state.databaseLoadingMore) return;
+  state.databaseLoadingMore = append;
   const params = new URLSearchParams({
     type: state.databaseFilter,
     q: state.databaseQuery,
-    sort: "desc"
+    sort: state.databaseSortMode === "name" ? "name" : "count",
+    limit: String(state.databasePageSize),
+    offset: String(append ? state.databaseRows.length : 0)
   });
-  const data = await api(`/api/database?${params.toString()}`);
-  state.databaseRows = data.items || [];
-  if (state.selectedDatabaseId && !state.databaseRows.some((item) => item.id === state.selectedDatabaseId)) {
-    state.selectedDatabaseId = "";
+  try {
+    const data = await api(`/api/database?${params.toString()}`);
+    const items = data.items || [];
+    state.databaseRows = append ? mergeDatabaseRows(state.databaseRows, items) : items;
+    state.databaseHasMore = !!data.hasMore;
+    if (!state.user) {
+      state.selectedDatabaseId = "";
+      state.selectedDatabaseIds.clear();
+    }
+    if (state.selectedDatabaseId && !state.databaseRows.some((item) => item.id === state.selectedDatabaseId)) {
+      state.selectedDatabaseId = "";
+    }
+    for (const id of [...state.selectedDatabaseIds]) {
+      if (!state.databaseRows.some((item) => item.id === id)) state.selectedDatabaseIds.delete(id);
+    }
+  } finally {
+    state.databaseLoadingMore = false;
   }
-  for (const id of [...state.selectedDatabaseIds]) {
-    if (!state.databaseRows.some((item) => item.id === id)) state.selectedDatabaseIds.delete(id);
+}
+
+function mergeDatabaseRows(current, incoming) {
+  const seen = new Set(current.map((item) => item.id));
+  return [...current, ...incoming.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  })];
+}
+
+async function loadMoreDatabase() {
+  if (!state.databaseHasMore || state.databaseLoadingMore) return;
+  if (state.databaseDraftQuery !== state.databaseQuery) {
+    state.databaseQuery = state.databaseDraftQuery;
+    await loadDatabase();
+    renderDatabase();
+    return;
+  }
+  try {
+    state.databaseLoadingMore = true;
+    renderDatabase();
+    state.databaseLoadingMore = false;
+    await loadDatabase({ append: true });
+    renderDatabase();
+  } catch (error) {
+    state.databaseLoadingMore = false;
+    renderDatabase();
+    toast(error.message);
   }
 }
 
@@ -1149,7 +1231,9 @@ function render() {
   $("authPanel").hidden = !!state.user || state.view !== "auth";
   $("primaryNav").hidden = !state.user;
   $("packPanel").hidden = !state.user;
+  syncPackListFocus();
   $("topbar").hidden = ["database", "upload"].includes(state.view) || (!state.user && state.view === "auth");
+  $("refreshBtn").hidden = state.view === "admin";
   $("databasePage").hidden = state.view !== "database";
   $("uploadPage").hidden = !state.user || state.view !== "upload";
   $("statsCard").hidden = !state.user || state.view !== "stats";
@@ -1193,9 +1277,11 @@ function render() {
 }
 
 function renderPacks() {
+  syncPackListFocus();
   $("packList").innerHTML = "";
   $("packList").hidden = state.packsCollapsed;
   $("packBulkBar").hidden = state.packsCollapsed || !state.multiSelectPacks;
+  $("multiSelectBtn").hidden = state.packsCollapsed;
   $("multiSelectBtn").classList.toggle("active", state.multiSelectPacks);
   const collapseIcon = state.packsCollapsed ? "chevron-right" : "chevron-down";
   $("packCollapseBtn").innerHTML = `<span class="nav-icon">${iconSvg(collapseIcon)}</span>`;
@@ -1207,7 +1293,11 @@ function renderPacks() {
   $("deleteSelectedPacksBtn").textContent = t("deleteSelected");
   $("clearPackSelectionBtn").textContent = t("cancel");
   $("deleteSelectedPacksBtn").disabled = state.selectedPackIds.size === 0;
-  if (state.packsCollapsed) return;
+  if (state.packsCollapsed) {
+    state.multiSelectPacks = false;
+    state.selectedPackIds.clear();
+    return;
+  }
 
   state.packs.forEach((pack, index) => {
     const selected = state.selectedPackIds.has(pack.id);
@@ -1246,6 +1336,30 @@ function renderPacks() {
     div.querySelector(".delete-pack").onclick = () => deletePack(pack);
     $("packList").appendChild(div);
   });
+}
+
+function syncPackListFocus() {
+  document.body.classList.toggle("pack-list-focused", !!state.user && !state.packsCollapsed);
+}
+
+function containSidebarWheel(event) {
+  if (!state.user) return;
+  const scrollTarget = event.target.closest(".pack-list, .sidebar");
+  if (!scrollTarget) return;
+  event.stopPropagation();
+
+  const delta = event.deltaY;
+  if (!delta) return;
+  const canScroll = scrollTarget.scrollHeight > scrollTarget.clientHeight;
+  if (!canScroll) {
+    event.preventDefault();
+    return;
+  }
+  const atTop = scrollTarget.scrollTop <= 0;
+  const atBottom = Math.ceil(scrollTarget.scrollTop + scrollTarget.clientHeight) >= scrollTarget.scrollHeight;
+  if ((delta < 0 && atTop) || (delta > 0 && atBottom)) {
+    event.preventDefault();
+  }
 }
 
 function togglePackSelection(packId) {
@@ -1562,14 +1676,16 @@ function databaseAvatar(item, size = "small") {
 }
 
 function renderDatabase() {
-  if (!state.user) return;
-  $("databaseSearch").value = state.databaseQuery;
+  $("databaseSearch").value = state.databaseDraftQuery;
+  const canOperate = !!state.user;
   const hasSelection = state.selectedDatabaseIds.size > 0;
-  $("databaseSelectedCount").hidden = !hasSelection;
+  $("databaseSelectAllBtn").hidden = !canOperate;
+  $("databaseSelectedCount").hidden = !canOperate || !hasSelection;
   $("databaseSelectedCount").textContent = state.lang === "zh" ? `已选择 ${state.selectedDatabaseIds.size} 项` : `${state.selectedDatabaseIds.size} selected`;
-  $("filterAppfilterBtn").disabled = !hasSelection;
-  $("filterDrawableBtn").disabled = !hasSelection;
-  $("filterIconPackBtn").disabled = !hasSelection;
+  $("filterAppfilterBtn").disabled = !canOperate || !hasSelection;
+  $("filterDrawableBtn").disabled = !canOperate || !hasSelection;
+  $("filterIconPackBtn").disabled = !canOperate || !hasSelection;
+  $("filterMoreBtn").disabled = !canOperate || !hasSelection;
   $("filterAppfilterBtn").classList.toggle("active", hasSelection);
   $("filterDrawableBtn").classList.toggle("active", false);
   $("filterIconPackBtn").classList.toggle("active", false);
@@ -1577,11 +1693,15 @@ function renderDatabase() {
   $("filterDrawableBtn").classList.toggle("copy-ready", hasSelection);
   $("filterIconPackBtn").classList.toggle("copy-ready", hasSelection);
   $("databaseSortBtn").classList.toggle("active", state.databaseSortMode === "name");
+  $("databaseLoadMoreBtn").hidden = !state.databaseHasMore && !state.databaseLoadingMore;
+  $("databaseLoadMoreBtn").disabled = state.databaseLoadingMore;
+  $("databaseLoadMoreBtn").textContent = state.databaseLoadingMore ? t("loadingMore") : t("loadMore");
 
   const rows = visibleDatabaseRows();
   const allVisibleSelected = rows.length > 0 && rows.every((item) => state.selectedDatabaseIds.has(item.id));
   $("databaseSelectAllBtn").textContent = allVisibleSelected ? t("deselectAll") : t("selectAll");
-  renderDatabaseCopyMenu();
+  if (canOperate) renderDatabaseCopyMenu();
+  if (!canOperate) state.databaseCopyMenuOpen = false;
 
   $("databaseList").innerHTML = "";
   if (!rows.length) {
@@ -1593,7 +1713,7 @@ function renderDatabase() {
     const div = document.createElement("article");
     div.className = `database-card${active ? " active" : ""}${selected ? " selected" : ""}`;
     div.innerHTML = `
-      <button class="database-check" type="button" aria-label="选择 ${escapeHtml(item.localizedName || item.defaultName || item.packageName)}">${selected ? "✓" : ""}</button>
+      ${canOperate ? `<button class="database-check" type="button" aria-label="选择 ${escapeHtml(item.localizedName || item.defaultName || item.packageName)}">${selected ? "✓" : ""}</button>` : ""}
       ${databaseAvatar(item)}
       <button class="database-main" type="button">
         <strong>${escapeHtml(item.localizedName || item.defaultName || item.packageName)}</strong>
@@ -1601,17 +1721,22 @@ function renderDatabase() {
       </button>
     `;
     div.querySelector(".database-main").onclick = () => {
+      if (!canOperate) return toast(t("loginToOperate"));
       state.selectedDatabaseId = item.id;
+      state.detailAdaptedMenuOpen = false;
       renderDatabase();
     };
-    div.querySelector(".database-check").onclick = () => {
-      if (state.selectedDatabaseIds.has(item.id)) {
-        state.selectedDatabaseIds.delete(item.id);
-      } else {
-        state.selectedDatabaseIds.add(item.id);
-      }
-      renderDatabase();
-    };
+    const check = div.querySelector(".database-check");
+    if (check) {
+      check.onclick = () => {
+        if (state.selectedDatabaseIds.has(item.id)) {
+          state.selectedDatabaseIds.delete(item.id);
+        } else {
+          state.selectedDatabaseIds.add(item.id);
+        }
+        renderDatabase();
+      };
+    }
     $("databaseList").appendChild(div);
   }
 
@@ -1628,19 +1753,30 @@ function renderDatabase() {
   }
   const adaptedButton = $("databaseDetail").querySelector(".adapted-select");
   if (adaptedButton && selected) {
-    adaptedButton.onclick = async () => {
-      const request = state.requests.find((item) => item.package_name === selected.packageName && item.main_activity === selected.mainActivity);
-      if (request) {
-        await setRequestAdapted(request.id, !selected.adapted);
-      } else {
-        toast(t("categoryComingSoon"));
-      }
+    $("databaseDetail").querySelector(".adapted-main").onclick = () => updateDetailAdapted(selected, !selected.adapted);
+    $("databaseDetail").querySelector(".adapted-toggle").onclick = (event) => {
+      event.stopPropagation();
+      state.detailAdaptedMenuOpen = !state.detailAdaptedMenuOpen;
+      renderDatabase();
+    };
+    $("databaseDetail").querySelector(".adapted-menu-item").onclick = (event) => {
+      event.stopPropagation();
+      updateDetailAdapted(selected, true);
     };
   };
 }
 
+async function updateDetailAdapted(selected, adapted) {
+  await setRequestAdapted(selected.id, adapted);
+  selected.adapted = adapted;
+  state.detailAdaptedMenuOpen = false;
+  await loadDatabase();
+  render();
+  toast(adapted ? t("markedAdapted") : t("markedUnadapted"));
+}
+
 function visibleDatabaseRows() {
-  const query = state.databaseQuery.toLowerCase();
+  const query = state.databaseDraftQuery.toLowerCase();
   return sortDatabaseRows(state.databaseRows.filter((item) => {
     const blob = `${item.localizedName} ${item.defaultName} ${item.packageName} ${item.mainActivity} ${item.drawable} ${item.iconPackName}`.toLowerCase();
     return !query || blob.includes(query);
@@ -1800,16 +1936,24 @@ async function submitPasswordRecovery() {
 
 function databaseDetailHtml(item) {
   const name = item.localizedName || item.defaultName || item.packageName;
+  const adaptedLabel = item.adapted ? "标记为未适配" : "标记为已适配";
   return `
     <div class="detail-head">
       <h2>${escapeHtml(name)}</h2>
       <button class="detail-close" type="button" title="关闭">×</button>
     </div>
     ${databaseAvatar(item, "large")}
-    <button class="adapted-select" type="button">
-      <span>${item.adapted ? "标记为已适配" : "标记为未适配"}</span>
-      <span class="nav-icon">${iconSvg("chevron-down")}</span>
-    </button>
+    <div class="adapted-select-wrap">
+      <div class="adapted-select">
+        <button class="adapted-main" type="button">${escapeHtml(adaptedLabel)}</button>
+        <button class="adapted-toggle" type="button" aria-label="${escapeHtml(t("moreFilters"))}">
+          <span class="nav-icon">${iconSvg("chevron-down")}</span>
+        </button>
+      </div>
+      <div class="adapted-menu" ${state.detailAdaptedMenuOpen ? "" : "hidden"}>
+        <button class="adapted-menu-item" type="button">标记为已适配</button>
+      </div>
+    </div>
     <dl class="detail-list">
       <dt>Package</dt>
       <dd>${escapeHtml(item.packageName)}</dd>
@@ -1878,8 +2022,8 @@ async function submitUpload() {
   } catch (error) {
     toast(error.message);
   } finally {
-    renderUploadPage();
-  }
+  renderUploadPage();
+}
 }
 
 function formatFileSize(bytes) {
@@ -1924,6 +2068,7 @@ function renderAdminUsers() {
       <td class="mono">${escapeHtml(displayAccount(user.email))}</td>
       <td>${escapeHtml(user.name)}</td>
       <td class="mono recovery-cell">${recoveryHtml(user.recovery)}</td>
+      <td class="mono">${escapeHtml(canViewUserPhone() ? (user.phone || "-") : t("passwordEncrypted"))}</td>
       <td>${passwordCellHtml(user)}</td>
       <td>${editablePermission
         ? `<input class="permission-input" data-user-id="${escapeHtml(user.id)}" value="${escapeHtml(user.permissionLevel || "普通会员")}" aria-label="权限级别">`

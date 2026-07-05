@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
+  phone TEXT,
   password_hash TEXT NOT NULL,
   permission_level TEXT NOT NULL DEFAULT '普通会员',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
