@@ -82,5 +82,5 @@
 
     <!-- AppTracker icon request manager -->
     <string name="apptracker_access_key" translatable="false">mat_HZltQXQy0xtS5_JDZB4jHynwvrrU3FY0ZR2KObM1_fqtZexA</string>
-    <string name="apptracker_base_url" translatable="false">https://monet-apptracker.monetcarlos2026.workers.dev/</string>
+    <string name="apptracker_base_url" translatable="false">https://monet-apptracker.pages.dev/</string>
 </resources>
