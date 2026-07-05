@@ -56,6 +56,14 @@ const I18N = {
     language: "English",
     logout: "退出",
     refresh: "刷新",
+    upload: "上传",
+    search: "搜索",
+    searchHome: "输入搜索内容...",
+    appfilterTab: "Appfilter",
+    drawableTab: "Drawable",
+    iconPackTab: "图标包",
+    moreFilters: "更多",
+    sort: "排序",
     overview: "概览",
     overviewDesc: "查看您的图标包统计数据和活动。",
     totalPacks: "图标包总数",
@@ -161,6 +169,14 @@ const I18N = {
     language: "中文",
     logout: "Log out",
     refresh: "Refresh",
+    upload: "Upload",
+    search: "Search",
+    searchHome: "Search apps...",
+    appfilterTab: "Appfilter",
+    drawableTab: "Drawable",
+    iconPackTab: "IconPack",
+    moreFilters: "More",
+    sort: "Sort",
     overview: "Overview",
     overviewDesc: "View your icon pack statistics and activity.",
     totalPacks: "Icon packs",
@@ -359,6 +375,15 @@ function applyLanguage() {
   $("languageLabel").textContent = t("language");
   $("logoutBtn").title = t("logout");
   $("refreshBtn").textContent = t("refresh");
+  $("openUploadBtn").querySelector("span:last-child").textContent = t("upload");
+  $("uploadTopBtn").querySelector("span:last-child").textContent = t("upload");
+  $("databaseSearch").placeholder = t("searchHome");
+  $("databaseSearchBtn").querySelector("span:last-child").textContent = t("search");
+  $("filterAppfilterBtn").textContent = t("appfilterTab");
+  $("filterDrawableBtn").textContent = t("drawableTab");
+  $("filterIconPackBtn").textContent = t("iconPackTab");
+  $("filterMoreBtn").title = t("moreFilters");
+  $("databaseSortBtn").querySelector("span:last-child").textContent = t("sort");
   document.querySelector("#statsCard .page-intro h2").textContent = t("overview");
   document.querySelector("#statsCard .page-intro p").textContent = t("overviewDesc");
   document.querySelectorAll(".stat-card h3")[0].textContent = t("totalPacks");
@@ -462,6 +487,12 @@ function bindEvents() {
   $("uploadBrandBtn").onclick = () => openDatabasePage();
   $("openUploadBtn").onclick = () => openUploadPage();
   $("uploadTopBtn").onclick = () => openUploadPage();
+  $("homeAvatar").onclick = () => {
+    if (!state.user) openAuthPage();
+  };
+  $("uploadAvatar").onclick = () => {
+    if (!state.user) openAuthPage();
+  };
   $("databaseSearchBtn").onclick = () => {
     state.databaseQuery = $("databaseSearch").value.trim();
     loadDatabase().then(render);
@@ -479,7 +510,7 @@ function bindEvents() {
   $("filterAppfilterBtn").onclick = () => setDatabaseFilter("appfilter");
   $("filterDrawableBtn").onclick = () => setDatabaseFilter("drawable");
   $("filterIconPackBtn").onclick = () => setDatabaseFilter("iconpack");
-  $("filterMoreBtn").onclick = () => toast("暂无更多筛选");
+  $("filterMoreBtn").onclick = () => toast(t("moreFilters"));
   $("databaseSortBtn").onclick = async () => {
     state.databaseSortAsc = !state.databaseSortAsc;
     await loadDatabase();
@@ -1422,7 +1453,8 @@ function iconSvg(name) {
     check: '<path d="m20 6-11 11-5-5"/>',
     search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
     upload: '<path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M20 16v4H4v-4"/>',
-    sort: '<path d="M8 4v16"/><path d="m4 8 4-4 4 4"/><path d="M16 20V4"/><path d="m12 16 4 4 4-4"/>'
+    sort: '<path d="M8 4v16"/><path d="m4 8 4-4 4 4"/><path d="M16 20V4"/><path d="m12 16 4 4 4-4"/>',
+    "chevron-down": '<path d="m6 9 6 6 6-6"/>'
   };
   return `<svg ${attrs}>${paths[name] || paths.cube}</svg>`;
 }
