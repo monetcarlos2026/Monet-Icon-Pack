@@ -102,6 +102,7 @@ const I18N = {
     back: "返回",
     confirm: "确定",
     adminPasswordRequired: "请输入管理员密码",
+    passwordTooShort: "密码需要至少 8 位",
     adminRefreshed: "已刷新管理员数据",
     registerSuccess: "注册成功",
     loginSuccess: "登录成功",
@@ -204,6 +205,7 @@ const I18N = {
     back: "Back",
     confirm: "Confirm",
     adminPasswordRequired: "Enter the admin password",
+    passwordTooShort: "Password must be at least 8 characters",
     adminRefreshed: "Admin data refreshed",
     registerSuccess: "Registered",
     loginSuccess: "Signed in",
@@ -234,6 +236,7 @@ const t = (key, ...args) => {
 };
 
 const ROOT_EMAILS = new Set(["2841139293@qq.com", "1075210552@qq.com"]);
+const passwordWarningHits = [];
 
 function displayAccount(email) {
   const normalized = String(email || "").trim().toLowerCase();
@@ -253,6 +256,19 @@ function setAuthLoading(isLoading) {
   $("authLoading").hidden = !isLoading;
   $("loginBtn").disabled = isLoading;
   $("registerBtn").disabled = isLoading;
+}
+
+function warnPasswordTooShort() {
+  if ($("password").value.length >= 8) return false;
+  const now = Date.now();
+  while (passwordWarningHits.length && now - passwordWarningHits[0] > 60000) {
+    passwordWarningHits.shift();
+  }
+  if (passwordWarningHits.length < 8) {
+    passwordWarningHits.push(now);
+    toast(t("passwordTooShort"));
+  }
+  return true;
 }
 
 const api = async (path, options = {}) => {
@@ -448,6 +464,7 @@ function bindEvents() {
   };
 
   $("registerBtn").onclick = async () => {
+    if (warnPasswordTooShort()) return;
     setAuthLoading(true);
     try {
       const data = await api("/api/register", {
@@ -471,6 +488,7 @@ function bindEvents() {
   };
 
   $("loginBtn").onclick = async () => {
+    if (warnPasswordTooShort()) return;
     setAuthLoading(true);
     try {
       const data = await api("/api/login", {
