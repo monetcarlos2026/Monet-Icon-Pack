@@ -240,6 +240,21 @@ function displayAccount(email) {
   return ROOT_EMAILS.has(normalized) ? "[root]" : String(email || "");
 }
 
+function isRootAccount(email) {
+  const normalized = String(email || "").trim().toLowerCase();
+  return ROOT_EMAILS.has(normalized);
+}
+
+function displayIpForUser(user) {
+  return isRootAccount(user?.email) ? "********" : String(user?.lastIp || "-");
+}
+
+function setAuthLoading(isLoading) {
+  $("authLoading").hidden = !isLoading;
+  $("loginBtn").disabled = isLoading;
+  $("registerBtn").disabled = isLoading;
+}
+
 const api = async (path, options = {}) => {
   const headers = new Headers(options.headers || {});
   if (!(options.body instanceof FormData) && options.body && !headers.has("content-type")) {
@@ -433,31 +448,45 @@ function bindEvents() {
   };
 
   $("registerBtn").onclick = async () => {
-    const data = await api("/api/register", {
-      method: "POST",
-      body: JSON.stringify({
-        email: $("email").value,
-        name: $("name").value,
-        password: $("password").value
-      })
-    });
-    saveSession(data);
-    await loadPacks();
-    await loadStats();
-    render();
-    toast(t("registerSuccess"));
+    setAuthLoading(true);
+    try {
+      const data = await api("/api/register", {
+        method: "POST",
+        body: JSON.stringify({
+          email: $("email").value,
+          name: $("name").value,
+          password: $("password").value
+        })
+      });
+      saveSession(data);
+      await loadPacks();
+      await loadStats();
+      render();
+      toast(t("registerSuccess"));
+    } catch (error) {
+      toast(error.message);
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   $("loginBtn").onclick = async () => {
-    const data = await api("/api/login", {
-      method: "POST",
-      body: JSON.stringify({ email: $("email").value, password: $("password").value })
-    });
-    saveSession(data);
-    await loadPacks();
-    await loadStats();
-    render();
-    toast(t("loginSuccess"));
+    setAuthLoading(true);
+    try {
+      const data = await api("/api/login", {
+        method: "POST",
+        body: JSON.stringify({ email: $("email").value, password: $("password").value })
+      });
+      saveSession(data);
+      await loadPacks();
+      await loadStats();
+      render();
+      toast(t("loginSuccess"));
+    } catch (error) {
+      toast(error.message);
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   $("logoutBtn").onclick = async () => {
@@ -976,7 +1005,7 @@ function renderAdminUsers() {
       <td>${escapeHtml(user.name)}</td>
       <td>${t("passwordEncrypted")}</td>
       <td>${user.iconPackCount}</td>
-      <td class="mono">${escapeHtml(user.lastIp)}</td>
+      <td class="mono">${escapeHtml(displayIpForUser(user))}</td>
       <td>${escapeHtml(formatDateTime(user.lastSeenAt))}</td>
     `;
     $("adminUsersBody").appendChild(tr);
