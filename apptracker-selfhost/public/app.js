@@ -645,15 +645,11 @@ function bindEvents() {
     if (!state.user) openAuthPage();
   };
   $("databaseSearchBtn").onclick = () => {
-    state.databaseDraftQuery = $("databaseSearch").value.trim();
-    state.databaseQuery = state.databaseDraftQuery;
-    loadDatabase().then(render);
+    submitDatabaseSearch();
   };
   $("databaseSearch").onkeydown = (event) => {
     if (event.key === "Enter") {
-      state.databaseDraftQuery = $("databaseSearch").value.trim();
-      state.databaseQuery = state.databaseDraftQuery;
-      loadDatabase().then(render);
+      submitDatabaseSearch();
     }
   };
   $("databaseSearch").oninput = () => {
@@ -1059,6 +1055,18 @@ async function loadDatabase({ append = false } = {}) {
   } finally {
     state.databaseLoadingMore = false;
   }
+}
+
+async function submitDatabaseSearch() {
+  state.databaseDraftQuery = $("databaseSearch").value.trim();
+  state.databaseQuery = state.databaseDraftQuery;
+  state.selectedDatabaseId = "";
+  state.selectedDatabaseIds.clear();
+  state.databaseRows = [];
+  state.databaseHasMore = false;
+  renderDatabase();
+  await loadDatabase();
+  render();
 }
 
 function mergeDatabaseRows(current, incoming) {
@@ -1741,7 +1749,7 @@ function renderDatabase() {
   }
 
   const selected = rows.find((item) => item.id === state.selectedDatabaseId);
-  $("databaseList").parentElement.classList.toggle("has-detail", !!selected);
+  $("databaseList").closest(".database-layout").classList.toggle("has-detail", !!selected);
   $("databaseDetail").hidden = !selected;
   $("databaseDetail").innerHTML = selected ? databaseDetailHtml(selected) : "";
   const closeButton = $("databaseDetail").querySelector(".detail-close");
@@ -1776,7 +1784,7 @@ async function updateDetailAdapted(selected, adapted) {
 }
 
 function visibleDatabaseRows() {
-  const query = state.databaseDraftQuery.toLowerCase();
+  const query = state.databaseDraftQuery === state.databaseQuery ? "" : state.databaseDraftQuery.toLowerCase();
   return sortDatabaseRows(state.databaseRows.filter((item) => {
     const blob = `${item.localizedName} ${item.defaultName} ${item.packageName} ${item.mainActivity} ${item.drawable} ${item.iconPackName}`.toLowerCase();
     return !query || blob.includes(query);
