@@ -17,13 +17,13 @@
 
 ## 免费域名
 
-部署到 Cloudflare Workers 后会得到类似这样的免费地址：
+部署到 Cloudflare Pages 后会得到类似这样的免费地址：
 
 ```text
-https://monet-apptracker.<你的账号名>.workers.dev/
+https://monet-apptracker.pages.dev/
 ```
 
-如果你使用 Pages，也可以接到 `*.pages.dev`。本项目当前用 Workers 静态资源托管，最简单。
+本项目使用 Pages 静态托管 + Pages Functions。相比 `workers.dev`，`pages.dev` 在中国大陆网络里通常更容易访问。
 
 ## 部署
 
@@ -60,18 +60,19 @@ database_id = "这里换成你的 database_id"
 npx wrangler d1 execute apptracker_selfhost --file=./schema.sql
 ```
 
-5. 部署
+5. 创建 Pages 项目并部署
 
 ```bash
-npx wrangler deploy
+npx wrangler pages project create monet-apptracker --production-branch=main
+npx wrangler pages deploy public --project-name=monet-apptracker
 ```
 
-部署完成后，打开终端输出的 `workers.dev` 地址。
+部署完成后，打开终端输出的 `pages.dev` 地址。
 
 ## 本地开发
 
 ```bash
-npx wrangler dev
+npx wrangler pages dev public --compatibility-date=2026-07-04 --d1=DB=apptracker_selfhost
 ```
 
 本地通常会在：
@@ -86,7 +87,7 @@ http://localhost:8787/
 
 ```xml
 <string name="apptracker_access_key" translatable="false">生成的 token</string>
-<string name="apptracker_base_url" translatable="false">https://你的地址.workers.dev/</string>
+<string name="apptracker_base_url" translatable="false">https://你的地址.pages.dev/</string>
 ```
 
 注意 `apptracker_base_url` 末尾要保留 `/`。
