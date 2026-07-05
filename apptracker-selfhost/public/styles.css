@@ -346,6 +346,7 @@ main {
 }
 
 .header-theme-btn {
+  display: none;
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--text);
@@ -1598,6 +1599,10 @@ button:disabled {
   body.is-public-home .home-actions,
   body.is-authenticated .home-actions {
     gap: 8px;
+  }
+  body.is-public-home .header-theme-btn,
+  body.is-authenticated .header-theme-btn {
+    display: inline-flex;
   }
   body.is-public-home .header-action,
   body.is-authenticated .header-action {
