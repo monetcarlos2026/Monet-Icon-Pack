@@ -6,6 +6,7 @@ const ADMIN_SESSION_HOURS = 6;
 const ADMIN_PASSWORD_HASH = "f1e978b9b267e4445a3f01b80e1d2cb3d3d9a0cd044577c943aa9bd6718d7a05";
 const OWNER_EMAIL = "2841139293@qq.com";
 const DEFAULT_PERMISSION_LEVEL = "普通会员";
+const OWNER_PERMISSION_LEVEL = "超级管理员";
 const UPLOAD_LIMIT_PER_MINUTE = 10;
 const UPLOAD_MAX_BYTES = 8 * 1024 * 1024;
 
@@ -99,7 +100,7 @@ async function register(request, env) {
   const id = crypto.randomUUID();
   await env.DB.batch([
     env.DB.prepare("INSERT INTO users (id, email, name, password_hash, permission_level) VALUES (?, ?, ?, ?, ?)")
-      .bind(id, email, name, await passwordHash(password), DEFAULT_PERMISSION_LEVEL),
+      .bind(id, email, name, await passwordHash(password), defaultPermissionForEmail(email)),
     ...device.keys.map((key) => rateLimitIncrementStatement(env, "register_device", key))
   ]);
   await recordUserAccess(env, id, request);
@@ -646,7 +647,13 @@ async function assertVersionOwner(env, userId, versionId) {
 }
 
 function publicUser(user) {
-  return { id: user.id, email: user.email, name: user.name, permissionLevel: user.permission_level || user.permissionLevel || DEFAULT_PERMISSION_LEVEL };
+  const email = String(user.email || "").trim().toLowerCase();
+  const fallback = defaultPermissionForEmail(email);
+  return { id: user.id, email: user.email, name: user.name, permissionLevel: user.permission_level || user.permissionLevel || fallback };
+}
+
+function defaultPermissionForEmail(email) {
+  return String(email || "").trim().toLowerCase() === OWNER_EMAIL ? OWNER_PERMISSION_LEVEL : DEFAULT_PERMISSION_LEVEL;
 }
 
 async function readJson(request) {

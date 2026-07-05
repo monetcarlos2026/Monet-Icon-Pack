@@ -341,7 +341,7 @@ main {
 }
 
 .database-shell {
-  width: min(1580px, calc(100vw - 80px));
+  width: min(1320px, calc(100% - 64px));
   margin: 68px auto;
 }
 
@@ -381,9 +381,11 @@ main {
   display: flex;
   justify-content: flex-end;
   gap: 14px;
+  flex-wrap: wrap;
 }
 
 .segment-tabs {
+  min-width: 0;
   display: inline-flex;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -392,7 +394,7 @@ main {
 }
 
 .segment-tab {
-  min-width: 130px;
+  min-width: 112px;
   min-height: 52px;
   border-radius: 0;
   border-right: 1px solid var(--line);
@@ -441,8 +443,12 @@ main {
   padding-top: 26px;
 }
 
-.database-detail[hidden] + * {
-  display: none;
+.database-layout:not(.has-detail) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.database-layout:not(.has-detail) .database-list {
+  max-width: 860px;
 }
 
 .database-list {
@@ -661,7 +667,7 @@ main {
 }
 
 .upload-shell {
-  width: min(1780px, calc(100vw - 120px));
+  width: min(1360px, calc(100% - 64px));
   margin: 52px auto;
 }
 
@@ -670,19 +676,19 @@ main {
 }
 
 .upload-intro h2 {
-  font-size: 52px;
+  font-size: clamp(40px, 4vw, 52px);
   margin-bottom: 12px;
 }
 
 .upload-intro p {
-  font-size: 25px;
+  font-size: clamp(20px, 2vw, 25px);
   font-weight: 800;
 }
 
 .upload-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 520px);
-  gap: 52px;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: 40px;
   align-items: start;
 }
 
@@ -1456,282 +1462,256 @@ button:disabled {
 
 @media (max-width: 920px) {
   body {
-    display: block;
-    min-width: 0;
-    overflow-x: hidden;
-  }
-  body.sidebar-collapsed {
     grid-template-columns: 1fr;
   }
   .sidebar {
     position: static;
+    min-height: 0;
+  }
+  body.is-authenticated {
+    display: block;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+  body.is-authenticated .sidebar {
     width: 100%;
     height: auto;
-    min-height: 0;
     max-height: none;
     padding: 14px 14px 16px;
     border-right: 0;
     border-bottom: 1px solid var(--line);
     overflow: visible;
   }
-  .brand {
+  body.is-authenticated .brand {
     padding-bottom: 16px;
   }
-  body:not(.is-authenticated) .sidebar {
-    min-height: 100dvh;
-    display: grid;
-    align-content: center;
-    padding: 22px 14px;
-  }
-  body:not(.is-authenticated) .brand {
-    justify-content: center;
-  }
-  body:not(.is-authenticated) #authPanel {
-    width: min(460px, 100%);
-    justify-self: center;
-    margin: 0;
-  }
-  body:not(.is-authenticated) .side-actions {
-    display: none;
-  }
-  #authPanel {
-    margin: 10px 0 18px;
-  }
-  #authPanel .row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-  .primary-nav,
-  .side-actions {
+  body.is-authenticated .primary-nav,
+  body.is-authenticated .side-actions {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
   }
-  .nav-action,
-  .nav-link {
+  body.is-authenticated .nav-action,
+  body.is-authenticated .nav-link {
     min-width: 0;
   }
-  .nav-link {
+  body.is-authenticated .nav-link {
     justify-content: center;
     padding: 10px 8px;
   }
-  .nav-action span:last-child {
+  body.is-authenticated .nav-action span:last-child {
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  #packPanel {
+  body.is-authenticated #packPanel {
     max-height: none;
     margin: 12px 0;
   }
-  .pack-list {
+  body.is-authenticated .pack-list {
     max-height: 220px;
   }
-  .pack-actions {
-    opacity: 1;
-  }
-  .user-badge {
+  body.is-authenticated .user-badge {
     grid-column: 1 / -1;
   }
   main { padding: 0 16px 32px; }
   .topbar {
-    grid-template-columns: 48px 1fr;
+    grid-template-columns: 48px minmax(0, 1fr);
     margin: 0 -16px 22px;
     padding-right: 16px;
   }
-  .topbar > .row { grid-column: 2; }
+  .topbar > .row {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    align-self: end;
+    padding-bottom: 10px;
+  }
   .top-icon { width: 48px; height: 64px; }
   .card-head, .tools, .import-box { grid-template-columns: 1fr; display: grid; }
   .version-create { width: 100%; }
+  .pack-actions { opacity: 1; }
   .stat-grid { grid-template-columns: 1fr; }
-  table {
-    min-width: 720px;
-  }
-  .home-page,
-  .upload-page {
+  body.is-authenticated .home-page,
+  body.is-authenticated .upload-page {
     margin: 0 -16px -32px;
     min-height: auto;
   }
-  .home-header {
+  body.is-authenticated .home-header {
     min-height: 62px;
     padding: 0 14px;
   }
-  .home-brand {
+  body.is-authenticated .home-brand {
     gap: 10px;
     font-size: 20px;
   }
-  .home-logo {
+  body.is-authenticated .home-logo {
     width: 32px;
     height: 32px;
   }
-  .home-actions {
+  body.is-authenticated .home-actions {
     gap: 8px;
   }
-  .header-action {
+  body.is-authenticated .header-action {
     font-size: 16px;
     gap: 6px;
   }
-  .circle-action,
-  .home-avatar {
+  body.is-authenticated .circle-action,
+  body.is-authenticated .home-avatar {
     width: 40px;
     height: 40px;
   }
-  .home-avatar {
+  body.is-authenticated .home-avatar {
     font-size: 20px;
   }
-  .database-shell,
-  .upload-shell {
-    width: calc(100vw - 28px);
+  body.is-authenticated .database-shell,
+  body.is-authenticated .upload-shell {
+    width: calc(100% - 28px);
     margin: 22px auto;
   }
-  .database-tools {
+  body.is-authenticated .database-tools {
     gap: 16px;
     padding-bottom: 14px;
   }
-  .database-search {
+  body.is-authenticated .database-search {
     grid-template-columns: 1fr;
   }
-  .database-search input,
-  .database-search button {
+  body.is-authenticated .database-search input,
+  body.is-authenticated .database-search button {
     height: 50px;
     font-size: 16px;
   }
-  .database-filter-row {
+  body.is-authenticated .database-filter-row {
     justify-content: stretch;
     overflow-x: auto;
     padding-bottom: 2px;
   }
-  .segment-tabs {
+  body.is-authenticated .segment-tabs {
     flex: 1 0 auto;
   }
-  .segment-tab {
+  body.is-authenticated .segment-tab {
     min-width: 88px;
     min-height: 46px;
     font-size: 14px;
     padding: 8px 10px;
   }
-  .segment-arrow {
+  body.is-authenticated .segment-arrow {
     min-width: 46px;
   }
-  .sort-button {
+  body.is-authenticated .sort-button {
     min-width: 92px;
     min-height: 46px;
     font-size: 14px;
   }
-  .database-layout,
-  .database-layout.has-detail {
+  body.is-authenticated .database-layout,
+  body.is-authenticated .database-layout.has-detail {
     display: grid;
     grid-template-columns: 1fr;
     gap: 14px;
     padding-top: 14px;
   }
-  .database-card {
+  body.is-authenticated .database-card {
     min-height: 86px;
     grid-template-columns: 22px 48px 1fr;
     gap: 12px;
     padding: 14px 12px;
   }
-  .database-check {
+  body.is-authenticated .database-check {
     width: 20px;
     height: 20px;
   }
-  .database-avatar.small {
+  body.is-authenticated .database-avatar.small {
     width: 48px;
     height: 48px;
     border-radius: 12px;
     font-size: 22px;
   }
-  .database-main {
+  body.is-authenticated .database-main {
     grid-template-columns: 1fr;
     gap: 6px;
   }
-  .database-main strong {
+  body.is-authenticated .database-main strong {
     font-size: 18px;
   }
-  .database-meta {
+  body.is-authenticated .database-meta {
     font-size: 12px;
     text-align: left;
   }
-  .database-detail {
+  body.is-authenticated .database-detail {
     position: static;
     padding: 22px 18px;
   }
-  .detail-head h2 {
+  body.is-authenticated .detail-head h2 {
     font-size: 22px;
   }
-  .database-avatar.large {
+  body.is-authenticated .database-avatar.large {
     width: 86px;
     height: 86px;
     font-size: 40px;
   }
-  .upload-intro {
+  body.is-authenticated .upload-intro {
     margin-bottom: 22px;
   }
-  .upload-intro h2 {
+  body.is-authenticated .upload-intro h2 {
     font-size: 32px;
   }
-  .upload-intro p {
+  body.is-authenticated .upload-intro p {
     font-size: 17px;
   }
-  .upload-grid {
+  body.is-authenticated .upload-grid {
     grid-template-columns: 1fr;
     gap: 18px;
   }
-  .upload-card {
+  body.is-authenticated .upload-card {
     padding: 22px 18px;
   }
-  .upload-card h3 {
+  body.is-authenticated .upload-card h3 {
     font-size: 22px;
   }
-  .upload-card p {
+  body.is-authenticated .upload-card p {
     font-size: 15px;
   }
-  .drop-zone {
+  body.is-authenticated .drop-zone {
     min-height: 210px;
     margin-top: 22px;
   }
-  .drop-zone strong {
+  body.is-authenticated .drop-zone strong {
     font-size: 18px;
   }
-  .drop-zone span:last-child {
+  body.is-authenticated .drop-zone span:last-child {
     font-size: 16px;
   }
 }
 
 @media (max-width: 520px) {
-  .primary-nav,
-  .side-actions {
+  body.is-authenticated .primary-nav,
+  body.is-authenticated .side-actions {
     grid-template-columns: 1fr;
   }
-  .nav-link {
+  body.is-authenticated .nav-link {
     justify-content: flex-start;
   }
-  h1 {
+  body.is-authenticated h1 {
     font-size: 24px;
   }
-  .topbar {
-    grid-template-columns: 48px 1fr;
+  body.is-authenticated .topbar {
     gap: 12px;
   }
-  .topbar > .row {
-    grid-column: 1 / -1;
-    padding-left: 64px;
-  }
-  .database-filter-row {
+  body.is-authenticated .database-filter-row {
     flex-direction: column;
   }
-  .segment-tabs,
-  .sort-button {
+  body.is-authenticated .segment-tabs,
+  body.is-authenticated .sort-button {
     width: 100%;
   }
-  .segment-tab {
+  body.is-authenticated .segment-tab {
     min-width: 0;
     flex: 1 1 0;
   }
-  .home-brand strong {
+  body.is-authenticated .home-brand strong {
     max-width: 150px;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .header-action span:last-child {
+  body.is-authenticated .header-action span:last-child {
     display: none;
   }
 }
