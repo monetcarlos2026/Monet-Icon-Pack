@@ -55,6 +55,8 @@ async function handleApi(request, env, url) {
   const user = await requireUser(request, env);
 
   if (url.pathname === "/api/me" && request.method === "GET") return json({ user });
+  if (url.pathname === "/api/me/avatar" && request.method === "PATCH") return updateMyAvatar(request, env, user);
+  if (url.pathname === "/api/me/avatar" && request.method === "DELETE") return removeMyAvatar(env, user);
   if (url.pathname === "/api/upload-app-info" && request.method === "POST") return uploadAppInfo(request, env, user);
   if (url.pathname.match(/^\/api\/admin\/users\/[^/]+\/permission$/) && request.method === "PATCH") {
     return updateUserPermission(request, env, user, url.pathname.split("/")[4]);
@@ -63,6 +65,7 @@ async function handleApi(request, env, url) {
     return updateUserPassword(request, env, user, url.pathname.split("/")[4]);
   }
   if (url.pathname === "/api/admin/users/ban" && request.method === "POST") return banAdminUsers(request, env, user);
+  if (url.pathname === "/api/admin/users/unban" && request.method === "POST") return unbanAdminUsers(request, env, user);
   if (url.pathname.match(/^\/api\/admin\/notifications\/[^/]+\/close$/) && request.method === "PATCH") {
     return closeAdminNotification(request, env, user, url.pathname.split("/")[4]);
   }
@@ -142,7 +145,7 @@ async function login(request, env) {
   if (failures >= LOGIN_FAILURE_LIMIT_PER_ACCOUNT_DAY) {
     throw httpError("This account has failed to log in 10 times today. Please try again tomorrow.", 429);
   }
-  const user = await env.DB.prepare("SELECT id, email, name, password_hash, banned_at FROM users WHERE email = ?")
+  const user = await env.DB.prepare("SELECT id, email, name, avatar_url AS avatarUrl, avatar_qq AS avatarQq, password_hash, banned_at FROM users WHERE email = ?")
     .bind(email)
     .first();
   if (!user || !(await verifyPassword(password, user.password_hash))) {
@@ -383,6 +386,39 @@ async function banAdminUsers(request, env, actor) {
   return json({ ok: true, bannedCount: allowedIds.length });
 }
 
+async function unbanAdminUsers(request, env, actor) {
+  if (String(actor.email || "").toLowerCase() !== OWNER_EMAIL) throw httpError("Permission denied", 403);
+  await requireAdmin(request, env, "x-admin-token");
+  const body = await readJson(request);
+  const userIds = Array.isArray(body.userIds) ? [...new Set(body.userIds.map((id) => String(id || "").trim()).filter(Boolean))] : [];
+  if (!userIds.length) throw httpError("No users selected", 400);
+  const placeholders = userIds.map(() => "?").join(",");
+  await env.DB.prepare(`
+    UPDATE users
+    SET banned_at = NULL, banned_reason = NULL, banned_by = NULL
+    WHERE id IN (${placeholders})
+  `).bind(...userIds).run();
+  return json({ ok: true, unbannedCount: userIds.length });
+}
+
+async function updateMyAvatar(request, env, user) {
+  const body = await readJson(request);
+  const qq = String(body.qq || "").trim();
+  if (!/^\d{5,12}$/.test(qq)) throw httpError("请输入正确的 QQ 号码", 400);
+  const avatarUrl = qqAvatarUrl(qq);
+  await env.DB.prepare("UPDATE users SET avatar_url = ?, avatar_qq = ? WHERE id = ?")
+    .bind(avatarUrl, qq, user.id)
+    .run();
+  return json({ ok: true, user: publicUser({ ...user, avatarUrl, avatarQq: qq }) });
+}
+
+async function removeMyAvatar(env, user) {
+  await env.DB.prepare("UPDATE users SET avatar_url = NULL, avatar_qq = NULL WHERE id = ?")
+    .bind(user.id)
+    .run();
+  return json({ ok: true, user: publicUser({ ...user, avatarUrl: "", avatarQq: "" }) });
+}
+
 async function closeAdminNotification(request, env, actor, notificationId) {
   if (String(actor.email || "").toLowerCase() !== OWNER_EMAIL) throw httpError("Permission denied", 403);
   await requireAdmin(request, env, "x-admin-token");
@@ -396,7 +432,7 @@ async function requireUser(request, env) {
   const token = bearerToken(request) || cookieToken(request);
   if (!token) throw httpError("Unauthorized", 401);
   const row = await env.DB.prepare(`
-    SELECT users.id, users.email, users.name, users.banned_at AS bannedAt, COALESCE(users.permission_level, '${DEFAULT_PERMISSION_LEVEL}') AS permissionLevel
+    SELECT users.id, users.email, users.name, users.avatar_url AS avatarUrl, users.avatar_qq AS avatarQq, users.banned_at AS bannedAt, COALESCE(users.permission_level, '${DEFAULT_PERMISSION_LEVEL}') AS permissionLevel
     FROM sessions
     JOIN users ON users.id = sessions.user_id
     WHERE sessions.token = ? AND sessions.expires_at > ?
@@ -716,7 +752,7 @@ async function listDatabase(request, env, params) {
     : type === "iconpack"
       ? "AND app_requests.system_app = 0"
       : "";
-  const rows = await env.DB.prepare(`
+  const databaseSql = `
     WITH visible_requests AS (
       SELECT
         app_requests.*,
@@ -750,6 +786,16 @@ async function listDatabase(request, env, params) {
         )
         ${typeWhere}
     )
+  `;
+  const bindValues = [...(viewer ? [viewer.id] : []), q, q, q, q, q];
+  const totalRow = await env.DB.prepare(`
+    ${databaseSql}
+    SELECT COUNT(*) AS total
+    FROM visible_requests
+    WHERE row_number = 1
+  `).bind(...bindValues).first();
+  const rows = await env.DB.prepare(`
+    ${databaseSql}
     SELECT
       id,
       localized_name AS localizedName,
@@ -769,10 +815,11 @@ async function listDatabase(request, env, params) {
     WHERE row_number = 1
     ${orderBy}
     LIMIT ? OFFSET ?
-  `).bind(...(viewer ? [viewer.id] : []), q, q, q, q, q, limit + 1, offset).all();
+  `).bind(...bindValues, limit + 1, offset).all();
   const results = rows.results || [];
   const items = results.slice(0, limit);
   return json({
+    total: totalRow?.total || 0,
     hasMore: results.length > limit,
     items: items.map((item) => ({
       ...item,
@@ -988,7 +1035,14 @@ async function assertVersionOwner(env, userId, versionId) {
 function publicUser(user) {
   const email = String(user.email || "").trim().toLowerCase();
   const fallback = defaultPermissionForEmail(email);
-  return { id: user.id, email: user.email, name: user.name, permissionLevel: user.permission_level || user.permissionLevel || fallback };
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    permissionLevel: user.permission_level || user.permissionLevel || fallback,
+    avatarUrl: user.avatar_url || user.avatarUrl || "",
+    avatarQq: user.avatar_qq || user.avatarQq || ""
+  };
 }
 
 function defaultPermissionForEmail(email) {
@@ -998,6 +1052,10 @@ function defaultPermissionForEmail(email) {
 function isProtectedAdminEmail(email) {
   const normalized = String(email || "").trim().toLowerCase();
   return normalized === OWNER_EMAIL || normalized === SECOND_ADMIN_EMAIL;
+}
+
+function qqAvatarUrl(qq) {
+  return `https://q1.qlogo.cn/g?b=qq&s=100&nk=${encodeURIComponent(qq)}`;
 }
 
 async function readJson(request) {

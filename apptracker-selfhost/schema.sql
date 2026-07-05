@@ -3,6 +3,8 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   phone TEXT,
+  avatar_url TEXT,
+  avatar_qq TEXT,
   password_hash TEXT NOT NULL,
   permission_level TEXT NOT NULL DEFAULT '普通会员',
   banned_at TEXT,

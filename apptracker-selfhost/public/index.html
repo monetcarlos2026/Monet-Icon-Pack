@@ -98,8 +98,11 @@
       </button>
       <div id="userBadge" class="user-badge" hidden>
         <span id="userInitial" class="user-avatar">S</span>
-        <span>
-          <strong id="userName">SealYu</strong>
+        <span class="user-info">
+          <span class="user-name-line">
+            <strong id="userName">SealYu</strong>
+            <img id="vipBadge" class="vip-badge" src="/vip.png" alt="VIP" hidden>
+          </span>
           <small id="userEmail">3140474084@qq.com</small>
         </span>
         <button id="logoutBtn" class="logout-btn" type="button" title="退出">
@@ -155,6 +158,7 @@
             </button>
           </div>
           <div class="database-filter-row">
+            <span id="databaseTotalCount" class="database-total-count">当前已提交应用数：0</span>
             <button id="databaseSelectAllBtn" class="select-all-btn" type="button">全选</button>
             <span id="databaseSelectedCount" class="selected-count" hidden>已选择 0 项</span>
             <div class="segment-tabs" role="tablist" aria-label="数据库类型">

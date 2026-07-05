@@ -26,6 +26,7 @@ const state = {
   databaseDraftQuery: "",
   databaseSortMode: "count",
   databasePageSize: 30,
+  databaseTotal: 0,
   databaseHasMore: false,
   databaseLoadingMore: false,
   selectedDatabaseId: "",
@@ -107,6 +108,7 @@ const I18N = {
     trimSpaces: "去除空白",
     removeBlankLines: "移除空行",
     selectedApps: (count) => `已选择 ${count} 个应用`,
+    submittedAppsTotal: (count) => `当前已提交应用数：${count}`,
     overview: "概览",
     overviewDesc: "查看您的图标包统计数据和活动。",
     totalPacks: "图标包总数",
@@ -134,6 +136,13 @@ const I18N = {
     bannedUsers: (count) => `已封禁 ${count} 个违规账户`,
     riskAuthorizeNotice: "该操作可能存在风险，需要授权核实，请等待",
     notificationClosed: "通知已关闭",
+    bindQqAvatarPrompt: "请输入 QQ 号码，用于显示 QQ 头像",
+    removeAvatarConfirm: "是否删除已绑定头像？",
+    avatarBound: "头像已绑定",
+    avatarRemoved: "头像已删除",
+    unbanAccount: "解封",
+    unbanConfirm: "确定解封这个账户？",
+    unbannedUser: "账户已解封",
     account: "账号",
     nickname: "昵称",
     password: "密码",
@@ -285,6 +294,7 @@ const I18N = {
     trimSpaces: "Trim spaces",
     removeBlankLines: "Remove blank lines",
     selectedApps: (count) => `${count} apps selected`,
+    submittedAppsTotal: (count) => `Submitted apps: ${count}`,
     overview: "Overview",
     overviewDesc: "View your icon pack statistics and activity.",
     totalPacks: "Icon packs",
@@ -312,6 +322,13 @@ const I18N = {
     bannedUsers: (count) => `${count} accounts banned`,
     riskAuthorizeNotice: "This operation may be risky and requires authorization. Please wait.",
     notificationClosed: "Notification closed",
+    bindQqAvatarPrompt: "Enter a QQ number to show its avatar",
+    removeAvatarConfirm: "Remove the bound avatar?",
+    avatarBound: "Avatar bound",
+    avatarRemoved: "Avatar removed",
+    unbanAccount: "Unban",
+    unbanConfirm: "Unban this account?",
+    unbannedUser: "Account unbanned",
     account: "Account",
     nickname: "Name",
     password: "Password",
@@ -460,6 +477,26 @@ function canResetPasswordForUser(user) {
   if (actorEmail === OWNER_EMAIL) return targetEmail !== OWNER_EMAIL;
   if (actorEmail === SECOND_ADMIN_EMAIL) return targetEmail !== OWNER_EMAIL && targetEmail !== SECOND_ADMIN_EMAIL;
   return false;
+}
+
+function hasVipPermission(permissionLevel) {
+  const value = String(permissionLevel || "").trim();
+  return value === "高级会员" || value === "超级管理员";
+}
+
+function avatarText(user, fallback = "A") {
+  return (user?.name || user?.email || fallback).trim().slice(0, 1).toUpperCase();
+}
+
+function avatarHtml(user, fallback = "A") {
+  if (user?.avatarUrl) {
+    return `<img class="bound-avatar-img" src="${escapeHtml(user.avatarUrl)}" alt="QQ头像">`;
+  }
+  return escapeHtml(avatarText(user, fallback));
+}
+
+function renderAvatarNode(node, user, fallback = "A") {
+  node.innerHTML = avatarHtml(user, fallback);
 }
 
 function setAuthLoading(isLoading) {
@@ -685,6 +722,7 @@ function bindEvents() {
   $("uploadBrandBtn").onclick = goProductionHome;
   $("openUploadBtn").onclick = () => openUploadPage();
   $("uploadTopBtn").onclick = () => openUploadPage();
+  $("userInitial").onclick = handleAvatarClick;
   $("homeAvatar").onclick = () => {
     if (!state.user) openAuthPage();
   };
@@ -1093,6 +1131,7 @@ async function loadDatabase({ append = false } = {}) {
     const data = await api(`/api/database?${params.toString()}`);
     const items = data.items || [];
     state.databaseRows = append ? mergeDatabaseRows(state.databaseRows, items) : items;
+    state.databaseTotal = Number(data.total || 0);
     state.databaseHasMore = !!data.hasMore;
     if (!state.user) {
       state.selectedDatabaseId = "";
@@ -1264,6 +1303,34 @@ async function submitAdminPassword() {
   await openAdminPage();
 }
 
+async function handleAvatarClick() {
+  if (!state.user) {
+    openAuthPage();
+    return;
+  }
+  try {
+    if (state.user.avatarUrl) {
+      if (!confirm(t("removeAvatarConfirm"))) return;
+      const data = await api("/api/me/avatar", { method: "DELETE" });
+      state.user = data.user;
+      render();
+      toast(t("avatarRemoved"));
+      return;
+    }
+    const qq = prompt(t("bindQqAvatarPrompt"), state.user.avatarQq || "");
+    if (!qq) return;
+    const data = await api("/api/me/avatar", {
+      method: "PATCH",
+      body: JSON.stringify({ qq })
+    });
+    state.user = data.user;
+    render();
+    toast(t("avatarBound"));
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
 async function openAdminPage() {
   try {
     await loadAdminUsers();
@@ -1313,11 +1380,13 @@ function render() {
     $("userBadge").hidden = false;
     $("userName").textContent = state.user.name;
     $("userEmail").textContent = displayAccount(state.user.email);
-    $("userInitial").textContent = (state.user.name || state.user.email || "A").trim().slice(0, 1).toUpperCase();
+    renderAvatarNode($("userInitial"), state.user, "A");
+    $("vipBadge").hidden = !hasVipPermission(state.user?.permissionLevel);
     $("homeAvatar").hidden = true;
     $("uploadAvatar").hidden = true;
   } else {
     $("userBadge").hidden = true;
+    $("vipBadge").hidden = true;
     $("homeAvatar").hidden = false;
     $("homeAvatar").innerHTML = `<span class="nav-icon">${iconSvg("user")}</span>`;
     $("uploadAvatar").hidden = true;
@@ -1752,6 +1821,7 @@ function renderDatabase() {
   $("databaseSearch").value = state.databaseDraftQuery;
   const canOperate = !!state.user;
   const hasSelection = state.selectedDatabaseIds.size > 0;
+  $("databaseTotalCount").textContent = t("submittedAppsTotal", state.databaseTotal || 0);
   $("databaseSelectAllBtn").hidden = !canOperate;
   $("databaseSelectedCount").hidden = !canOperate || !hasSelection;
   $("databaseSelectedCount").textContent = state.lang === "zh" ? `已选择 ${state.selectedDatabaseIds.size} 项` : `${state.selectedDatabaseIds.size} selected`;
@@ -2224,6 +2294,9 @@ function renderAdminUsers() {
       renderAdminUsers();
     };
   });
+  document.querySelectorAll(".unban-user-btn").forEach((button) => {
+    button.onclick = () => unbanAdminUser(button.dataset.userId);
+  });
   document.querySelectorAll(".close-admin-notice").forEach((button) => {
     button.onclick = () => closeAdminNotification(button.dataset.notificationId);
   });
@@ -2243,7 +2316,10 @@ function passwordCellHtml(user) {
 
 function adminManageCellHtml(user, canSelectUser) {
   if (user.bannedAt) {
-    return `<span class="status-pill danger-status">${escapeHtml(t("banned"))}</span>`;
+    const button = canManageAccounts()
+      ? `<button class="text-btn unban-user-btn" type="button" data-user-id="${escapeHtml(user.id)}">${escapeHtml(t("unbanAccount"))}</button>`
+      : "";
+    return `<div class="admin-manage-stack"><span class="status-pill danger-status">${escapeHtml(t("banned"))}</span>${button}</div>`;
   }
   if (!canSelectUser) {
     return `<span class="status-pill">${escapeHtml(t("activeAccount"))}</span>`;
@@ -2255,6 +2331,23 @@ function adminManageCellHtml(user, canSelectUser) {
       <span>${escapeHtml(t("selectUser"))}</span>
     </label>
   `;
+}
+
+async function unbanAdminUser(userId) {
+  if (!confirm(t("unbanConfirm"))) return;
+  try {
+    const result = await api("/api/admin/users/unban", {
+      method: "POST",
+      headers: { "x-admin-token": state.adminToken },
+      body: JSON.stringify({ userIds: [userId] })
+    });
+    state.selectedAdminUserIds.delete(userId);
+    await loadAdminUsers();
+    renderAdminUsers();
+    toast(result.unbannedCount ? t("unbannedUser") : t("refreshed"));
+  } catch (error) {
+    toast(error.message);
+  }
 }
 
 function recoveryHtml(recovery) {

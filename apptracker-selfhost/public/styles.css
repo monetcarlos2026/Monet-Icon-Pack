@@ -398,6 +398,12 @@ body.is-authenticated .header-theme-btn {
   color: var(--text);
   font-size: 26px;
   font-weight: 500;
+  overflow: hidden;
+}
+
+.home-avatar .bound-avatar-img {
+  width: 100%;
+  height: 100%;
 }
 
 .home-avatar .nav-icon {
@@ -455,6 +461,18 @@ body.is-authenticated .header-theme-btn {
   justify-content: flex-end;
   gap: 14px;
   flex-wrap: wrap;
+}
+
+.database-total-count {
+  min-height: 52px;
+  margin-right: auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 2px;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .selected-count {
@@ -1212,8 +1230,20 @@ button.danger {
 }
 
 .danger-outline {
+  background: color-mix(in srgb, var(--danger), transparent 90%);
   color: var(--danger);
-  border-color: color-mix(in srgb, var(--danger), var(--line) 48%);
+  border: 1px solid color-mix(in srgb, var(--danger), var(--line) 45%);
+}
+
+.danger-outline:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger), transparent 82%);
+}
+
+.danger-outline:disabled {
+  opacity: 1;
+  color: color-mix(in srgb, var(--danger), var(--muted) 45%);
+  background: color-mix(in srgb, var(--danger), transparent 94%);
+  border-color: color-mix(in srgb, var(--danger), var(--line) 70%);
 }
 
 .admin-notifications {
@@ -1451,6 +1481,19 @@ a.nav-action {
   padding: 10px 4px 0;
 }
 
+.user-info {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.user-name-line {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .user-avatar {
   width: 42px;
   height: 42px;
@@ -1462,13 +1505,38 @@ a.nav-action {
   color: var(--text);
   font-weight: 900;
   font-size: 20px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.bound-avatar-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  border-radius: inherit;
 }
 
 .user-badge strong,
 .user-badge small {
   display: block;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.user-name-line strong {
+  flex: 0 1 auto;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.vip-badge {
+  width: 48px;
+  height: auto;
+  flex: 0 0 auto;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px var(--shadow));
 }
 
 .logout-btn {
@@ -1730,6 +1798,12 @@ td.mono {
   width: 18px;
   height: 18px;
   margin: 0;
+}
+
+.admin-manage-stack {
+  display: inline-grid;
+  gap: 6px;
+  justify-items: start;
 }
 
 .banned-row {
@@ -2258,6 +2332,13 @@ button:disabled {
     justify-content: stretch;
     overflow-x: auto;
     padding-bottom: 2px;
+  }
+  body.is-public-home .database-total-count,
+  body.is-authenticated .database-total-count {
+    flex: 0 0 100%;
+    min-height: 28px;
+    margin-right: 0;
+    font-size: 14px;
   }
   body.is-public-home .segment-tabs,
   body.is-authenticated .segment-tabs {
