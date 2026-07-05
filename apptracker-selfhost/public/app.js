@@ -3,7 +3,7 @@ const state = {
   theme: localStorage.getItem("theme") || "dark",
   lang: localStorage.getItem("lang") || "zh",
   user: null,
-  view: "stats",
+  view: "database",
   adminToken: sessionStorage.getItem("adminToken") || "",
   adminCurrentIp: "-",
   adminUsers: [],
@@ -462,8 +462,6 @@ function bindEvents() {
   $("uploadBrandBtn").onclick = () => openDatabasePage();
   $("openUploadBtn").onclick = () => openUploadPage();
   $("uploadTopBtn").onclick = () => openUploadPage();
-  $("homeThemeBtn").onclick = toggleTheme;
-  $("uploadThemeBtn").onclick = toggleTheme;
   $("databaseSearchBtn").onclick = () => {
     state.databaseQuery = $("databaseSearch").value.trim();
     loadDatabase().then(render);
@@ -566,7 +564,7 @@ function bindEvents() {
     await api("/api/logout", { method: "POST" }).catch(() => {});
     state.token = "";
     state.user = null;
-    state.view = "stats";
+    state.view = "database";
     state.packs = [];
     state.stats = null;
     state.recent = [];
@@ -669,11 +667,9 @@ function bindEvents() {
 function applyTheme() {
   document.documentElement.dataset.theme = state.theme;
   $("themeLabel").textContent = t("theme");
-  for (const icon of [$("themeBtn").querySelector(".nav-icon"), $("homeThemeBtn").querySelector(".nav-icon"), $("uploadThemeBtn").querySelector(".nav-icon")]) {
-    if (!icon) continue;
-    icon.dataset.icon = state.theme === "dark" ? "moon" : "sun";
-    icon.innerHTML = iconSvg(icon.dataset.icon);
-  }
+  const icon = $("themeBtn").querySelector(".nav-icon");
+  icon.dataset.icon = state.theme === "dark" ? "moon" : "sun";
+  icon.innerHTML = iconSvg(icon.dataset.icon);
 }
 
 function toggleTheme() {
@@ -765,14 +761,16 @@ async function loadRequests() {
 }
 
 async function openDatabasePage(shouldRender = true) {
-  if (!state.user) return;
   state.view = "database";
-  await loadDatabase();
+  if (state.user) await loadDatabase();
   if (shouldRender) render();
 }
 
 async function openUploadPage() {
-  if (!state.user) return;
+  if (!state.user) {
+    openAuthPage();
+    return;
+  }
   state.view = "upload";
   if (!state.packs.length) await loadPacks();
   state.uploadPackId = state.uploadPackId || state.selectedPackId || state.packs[0]?.id || "";
@@ -781,7 +779,11 @@ async function openUploadPage() {
 }
 
 async function loadDatabase() {
-  if (!state.token) return;
+  if (!state.token) {
+    state.databaseRows = [];
+    state.selectedDatabaseId = "";
+    return;
+  }
   const params = new URLSearchParams({
     type: state.databaseFilter,
     q: state.databaseQuery,
@@ -792,6 +794,12 @@ async function loadDatabase() {
   if (state.selectedDatabaseId && !state.databaseRows.some((item) => item.id === state.selectedDatabaseId)) {
     state.selectedDatabaseId = "";
   }
+}
+
+function openAuthPage() {
+  state.view = "auth";
+  render();
+  setTimeout(() => $("email").focus(), 0);
 }
 
 function setDatabaseFilter(filter) {
@@ -859,11 +867,13 @@ function render() {
   applyLanguage();
   applySidebarState();
   document.body.classList.toggle("is-authenticated", !!state.user);
-  $("authPanel").hidden = !!state.user;
+  document.body.classList.toggle("is-auth-page", !state.user && state.view === "auth");
+  document.body.classList.toggle("is-public-home", !state.user && state.view !== "auth");
+  $("authPanel").hidden = !!state.user || state.view !== "auth";
   $("primaryNav").hidden = !state.user;
   $("packPanel").hidden = !state.user;
-  $("topbar").hidden = !!state.user && ["database", "upload"].includes(state.view);
-  $("databasePage").hidden = !state.user || state.view !== "database";
+  $("topbar").hidden = ["database", "upload"].includes(state.view) || (!state.user && state.view === "auth");
+  $("databasePage").hidden = state.view !== "database";
   $("uploadPage").hidden = !state.user || state.view !== "upload";
   $("statsCard").hidden = !state.user || state.view !== "stats";
   $("adminCard").hidden = !state.user || state.view !== "admin";
@@ -877,10 +887,13 @@ function render() {
     $("userName").textContent = state.user.name;
     $("userEmail").textContent = displayAccount(state.user.email);
     $("userInitial").textContent = (state.user.name || state.user.email || "A").trim().slice(0, 1).toUpperCase();
-    $("homeAvatar").textContent = $("userInitial").textContent;
-    $("uploadAvatar").textContent = $("userInitial").textContent;
+    $("homeAvatar").hidden = true;
+    $("uploadAvatar").hidden = true;
   } else {
     $("userBadge").hidden = true;
+    $("homeAvatar").hidden = false;
+    $("homeAvatar").textContent = "登";
+    $("uploadAvatar").hidden = true;
   }
 
   renderPacks();

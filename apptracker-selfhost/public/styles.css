@@ -59,6 +59,14 @@ body.sidebar-collapsed {
   grid-template-columns: 72px 1fr;
 }
 
+body.is-public-home {
+  grid-template-columns: 1fr;
+}
+
+body.is-public-home .sidebar {
+  display: none;
+}
+
 .sidebar {
   position: sticky;
   top: 0;
@@ -338,6 +346,10 @@ main {
   background: var(--surface);
   font-size: 26px;
   font-weight: 500;
+}
+
+.home-avatar[hidden] {
+  display: none;
 }
 
 .database-shell {
