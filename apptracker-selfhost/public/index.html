@@ -139,7 +139,9 @@
           <button id="homeThemeBtn" class="header-theme-btn" type="button" title="切换主题">
             <span class="nav-icon" data-icon="moon"></span>
           </button>
-          <button id="homeAvatar" class="home-avatar" type="button" title="登录 / 注册">登</button>
+          <button id="homeAvatar" class="home-avatar" type="button" title="登录 / 注册">
+            <span class="nav-icon" data-icon="user"></span>
+          </button>
         </div>
       </header>
 
@@ -194,7 +196,9 @@
           <button id="uploadThemeBtn" class="header-theme-btn" type="button" title="切换主题">
             <span class="nav-icon" data-icon="moon"></span>
           </button>
-          <button id="uploadAvatar" class="home-avatar" type="button" title="登录 / 注册">登</button>
+          <button id="uploadAvatar" class="home-avatar" type="button" title="登录 / 注册">
+            <span class="nav-icon" data-icon="user"></span>
+          </button>
         </div>
       </header>
 
@@ -272,18 +276,25 @@
       <div class="card-head">
         <div>
           <h2>管理员服务</h2>
-          <p>查看当前注册用户状态。</p>
+          <div class="admin-summary-line">
+            <p id="adminDescText">查看当前注册用户状态。</p>
+            <p id="adminTotalUsersLine">当前站点总用户数：0</p>
+          </div>
           <p class="admin-ip-line"><span id="adminIpLabel">当前访问 IP：</span><strong id="adminCurrentIp">-</strong></p>
         </div>
-        <button id="refreshAdminBtn" class="secondary" type="button">刷新</button>
+        <div class="admin-head-actions">
+          <button id="banSelectedUsersBtn" class="secondary danger-outline" type="button" hidden>批量删除违规账户</button>
+          <button id="refreshAdminBtn" class="secondary" type="button">刷新</button>
+        </div>
       </div>
+      <div id="adminNotifications" class="admin-notifications" hidden></div>
       <div class="table-wrap admin-table-wrap">
         <table class="admin-table">
           <thead>
           <tr>
+            <th>管理账号</th>
             <th>账号</th>
             <th>昵称</th>
-            <th>找回密码</th>
             <th>手机号</th>
             <th>密码</th>
             <th>权限级别</th>

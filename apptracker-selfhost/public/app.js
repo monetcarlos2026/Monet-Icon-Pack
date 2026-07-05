@@ -6,6 +6,9 @@ const state = {
   view: "database",
   adminToken: sessionStorage.getItem("adminToken") || "",
   adminCurrentIp: "-",
+  adminTotalUsers: 0,
+  adminNotifications: [],
+  selectedAdminUserIds: new Set(),
   adminUsers: [],
   packs: [],
   stats: null,
@@ -29,6 +32,7 @@ const state = {
   selectedDatabaseIds: new Set(),
   openMenuKey: "",
   detailAdaptedMenuOpen: false,
+  detailCategoryMenuOpen: false,
   databaseCopyMenuOpen: false,
   customTemplate: localStorage.getItem("customTemplate") || `#for(app in apps):
 <item component="ComponentInfo{#(app.packageName)/#(app.mainActivity)}" drawable="#(app.autoDrawable)"/>
@@ -117,7 +121,19 @@ const I18N = {
     recentActivityDesc: "您近期的图标包申请和更新。",
     activityEmpty: "API 就绪后将显示活动数据。",
     adminDesc: "查看当前注册用户状态。",
+    siteTotalUsers: (count) => `当前站点总用户数：${count}`,
     currentIp: "当前访问 IP：",
+    accountManagement: "管理账号",
+    batchBanUsers: "批量删除违规账户",
+    selectUser: "选择",
+    banned: "已封禁",
+    activeAccount: "正常",
+    chooseUsersBan: "请选择要删除的违规账户",
+    banUsersConfirm: (count) => `确定批量删除 ${count} 个违规账户？删除后账号登录会提示已封禁。`,
+    secondPasswordRequired: "超过 10 个账户需要输入二级密码",
+    bannedUsers: (count) => `已封禁 ${count} 个违规账户`,
+    riskAuthorizeNotice: "该操作可能存在风险，需要授权核实，请等待",
+    notificationClosed: "通知已关闭",
     account: "账号",
     nickname: "昵称",
     password: "密码",
@@ -283,7 +299,19 @@ const I18N = {
     recentActivityDesc: "Recent icon pack requests and updates.",
     activityEmpty: "Activity data will appear after the API is ready.",
     adminDesc: "View current registered user status.",
+    siteTotalUsers: (count) => `Total site users: ${count}`,
     currentIp: "Current IP: ",
+    accountManagement: "Manage",
+    batchBanUsers: "Ban selected",
+    selectUser: "Select",
+    banned: "Banned",
+    activeAccount: "Active",
+    chooseUsersBan: "Select accounts to ban",
+    banUsersConfirm: (count) => `Ban ${count} selected accounts? Banned accounts will see the blocked login notice.`,
+    secondPasswordRequired: "More than 10 accounts require the secondary password",
+    bannedUsers: (count) => `${count} accounts banned`,
+    riskAuthorizeNotice: "This operation may be risky and requires authorization. Please wait.",
+    notificationClosed: "Notification closed",
     account: "Account",
     nickname: "Name",
     password: "Password",
@@ -384,7 +412,9 @@ const t = (key, ...args) => {
 
 const ROOT_EMAILS = new Set(["2841139293@qq.com", "1075210552@qq.com"]);
 const OWNER_EMAIL = "2841139293@qq.com";
+const SECOND_ADMIN_EMAIL = "1075210552@qq.com";
 const HOME_URL = "https://monet-apptracker.pages.dev";
+const SECOND_ADMIN_RISK_MESSAGE = "该操作可能存在风险，需要授权核实，请等待";
 const passwordWarningHits = [];
 
 function displayAccount(email) {
@@ -417,6 +447,19 @@ function canEditPermission() {
 
 function canViewUserPhone() {
   return String(state.user?.email || "").trim().toLowerCase() === OWNER_EMAIL && !!state.adminToken;
+}
+
+function canManageAccounts() {
+  return String(state.user?.email || "").trim().toLowerCase() === OWNER_EMAIL && !!state.adminToken;
+}
+
+function canResetPasswordForUser(user) {
+  const actorEmail = String(state.user?.email || "").trim().toLowerCase();
+  const targetEmail = String(user?.email || "").trim().toLowerCase();
+  if (!state.adminToken || user?.bannedAt) return false;
+  if (actorEmail === OWNER_EMAIL) return targetEmail !== OWNER_EMAIL;
+  if (actorEmail === SECOND_ADMIN_EMAIL) return targetEmail !== OWNER_EMAIL && targetEmail !== SECOND_ADMIN_EMAIL;
+  return false;
 }
 
 function setAuthLoading(isLoading) {
@@ -538,9 +581,11 @@ function applyLanguage() {
   document.querySelector(".activity-card h2").textContent = t("recentActivity");
   document.querySelector(".activity-card > p").textContent = t("recentActivityDesc");
   document.querySelector("#adminCard h2").textContent = t("adminService");
-  document.querySelector("#adminCard .card-head p").textContent = t("adminDesc");
+  $("adminDescText").textContent = t("adminDesc");
+  $("adminTotalUsersLine").textContent = t("siteTotalUsers", state.adminTotalUsers || 0);
   $("adminIpLabel").textContent = t("currentIp");
   $("refreshAdminBtn").textContent = t("refresh");
+  $("banSelectedUsersBtn").textContent = t("batchBanUsers");
   document.querySelector("#versionsCard h2").textContent = t("version");
   document.querySelector("#versionsCard .card-head p").textContent = t("versionDesc");
   $("versionName").placeholder = "1.1";
@@ -574,7 +619,7 @@ function applyLanguage() {
 }
 
 function updateTableHeaders() {
-  setHeaders("#adminCard thead th", [t("account"), t("nickname"), t("recoveryInfo"), t("phone"), t("password"), t("permissionLevel"), t("iconPackCount"), t("accessIp"), t("lastAccess")]);
+  setHeaders("#adminCard thead th", [t("accountManagement"), t("account"), t("nickname"), t("phone"), t("password"), t("permissionLevel"), t("iconPackCount"), t("accessIp"), t("lastAccess")]);
   setHeaders("#versionsCard thead th", ["Version", t("createdAt"), t("actions")]);
   setHeaders("#requestsCard thead th", [t("appName"), "Package", "Activity", t("count"), ""]);
   setHeaders("#adaptedCard thead th", [t("appName"), "Package", "Activity", t("drawable"), t("category"), ""]);
@@ -591,6 +636,7 @@ function bindEvents() {
   $("homeThemeBtn").onclick = toggleTheme;
   $("uploadThemeBtn").onclick = toggleTheme;
   document.querySelector(".sidebar").addEventListener("wheel", containSidebarWheel, { passive: false });
+  $("databaseDetail").addEventListener("wheel", containScrollableWheel, { passive: false });
 
   $("languageBtn").onclick = () => {
     state.lang = state.lang === "zh" ? "en" : "zh";
@@ -632,6 +678,7 @@ function bindEvents() {
     render();
     toast(t("adminRefreshed"));
   };
+  $("banSelectedUsersBtn").onclick = banSelectedAdminUsers;
 
   $("homeBtn").onclick = goProductionHome;
   $("homeBrandBtn").onclick = goProductionHome;
@@ -724,7 +771,8 @@ function bindEvents() {
           email: $("email").value,
           name: $("name").value,
           password: $("password").value,
-          phone: $("registerPhone").value.trim()
+          phone: $("registerPhone").value.trim(),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || ""
         })
       });
       saveSession(data);
@@ -880,6 +928,10 @@ function bindEvents() {
     }
     if (!event.target.closest(".database-copy-menu-wrap") && state.databaseCopyMenuOpen) {
       state.databaseCopyMenuOpen = false;
+      renderDatabase();
+    }
+    if (!event.target.closest(".detail-tag-wrap") && state.detailCategoryMenuOpen) {
+      state.detailCategoryMenuOpen = false;
       renderDatabase();
     }
   });
@@ -1181,6 +1233,10 @@ async function loadAdminUsers() {
   });
   state.adminUsers = data.users || [];
   state.adminCurrentIp = data.currentIp || "-";
+  state.adminTotalUsers = data.totalUsers || state.adminUsers.length;
+  state.adminNotifications = data.notifications || [];
+  const validIds = new Set(state.adminUsers.map((user) => user.id));
+  state.selectedAdminUserIds = new Set([...state.selectedAdminUserIds].filter((id) => validIds.has(id)));
 }
 
 function openAdminModal() {
@@ -1263,7 +1319,7 @@ function render() {
   } else {
     $("userBadge").hidden = true;
     $("homeAvatar").hidden = false;
-    $("homeAvatar").textContent = "登";
+    $("homeAvatar").innerHTML = `<span class="nav-icon">${iconSvg("user")}</span>`;
     $("uploadAvatar").hidden = true;
   }
 
@@ -1353,6 +1409,15 @@ function syncPackListFocus() {
 function containSidebarWheel(event) {
   if (!state.user) return;
   const scrollTarget = event.target.closest(".pack-list, .sidebar");
+  containWheelInTarget(event, scrollTarget);
+}
+
+function containScrollableWheel(event) {
+  const scrollTarget = event.currentTarget;
+  containWheelInTarget(event, scrollTarget);
+}
+
+function containWheelInTarget(event, scrollTarget) {
   if (!scrollTarget) return;
   event.stopPropagation();
 
@@ -1732,6 +1797,7 @@ function renderDatabase() {
       if (!canOperate) return toast(t("loginToOperate"));
       state.selectedDatabaseId = item.id;
       state.detailAdaptedMenuOpen = false;
+      state.detailCategoryMenuOpen = false;
       renderDatabase();
     };
     const check = div.querySelector(".database-check");
@@ -1772,6 +1838,20 @@ function renderDatabase() {
       updateDetailAdapted(selected, true);
     };
   };
+  const tagButton = $("databaseDetail").querySelector(".detail-tag-button");
+  if (tagButton && selected) {
+    tagButton.onclick = (event) => {
+      event.stopPropagation();
+      state.detailCategoryMenuOpen = !state.detailCategoryMenuOpen;
+      renderDatabase();
+    };
+    $("databaseDetail").querySelectorAll(".detail-tag-option").forEach((button) => {
+      button.onclick = (event) => {
+        event.stopPropagation();
+        updateDetailCategory(selected, button.dataset.category);
+      };
+    });
+  }
 }
 
 async function updateDetailAdapted(selected, adapted) {
@@ -1781,6 +1861,18 @@ async function updateDetailAdapted(selected, adapted) {
   await loadDatabase();
   render();
   toast(adapted ? t("markedAdapted") : t("markedUnadapted"));
+}
+
+async function updateDetailCategory(selected, category) {
+  await api(`/api/requests/${selected.id}/category`, {
+    method: "PATCH",
+    body: JSON.stringify({ category })
+  });
+  selected.category = category;
+  state.detailCategoryMenuOpen = false;
+  await loadDatabase();
+  render();
+  toast(t("permissionUpdated"));
 }
 
 function visibleDatabaseRows() {
@@ -1945,6 +2037,8 @@ async function submitPasswordRecovery() {
 function databaseDetailHtml(item) {
   const name = item.localizedName || item.defaultName || item.packageName;
   const adaptedLabel = item.adapted ? "标记为未适配" : "标记为已适配";
+  const category = item.category && item.category !== "无分类" ? item.category : "";
+  const categoryOptions = ["系统应用", "用户应用", "游戏"];
   return `
     <div class="detail-head">
       <h2>${escapeHtml(name)}</h2>
@@ -1970,7 +2064,22 @@ function databaseDetailHtml(item) {
       <dt>请求次数</dt>
       <dd>${item.requestCount || 0}</dd>
       <dt>标签</dt>
-      <dd><span class="tag-add">+</span></dd>
+      <dd>
+        <div class="detail-tag-wrap">
+          <button class="detail-tag-button" type="button" aria-label="编辑标签">
+            <span class="nav-icon">${iconSvg("tag")}</span>
+            ${category ? `<span>${escapeHtml(category)}</span>` : `<span class="tag-plus">${iconSvg("plus")}</span>`}
+          </button>
+          <div class="detail-tag-menu" ${state.detailCategoryMenuOpen ? "" : "hidden"}>
+            ${categoryOptions.map((option) => `
+              <button class="detail-tag-option${category === option ? " active" : ""}" type="button" data-category="${escapeHtml(option)}">
+                <span class="nav-icon">${iconSvg(category === option ? "check" : "tag")}</span>
+                <span>${escapeHtml(option)}</span>
+              </button>
+            `).join("")}
+          </div>
+        </div>
+      </dd>
     </dl>
     <div class="detail-divider"></div>
     <section class="localized-box">
@@ -2068,14 +2177,20 @@ function renderStats() {
 
 function renderAdminUsers() {
   $("adminCurrentIp").textContent = state.adminCurrentIp || "-";
+  $("adminTotalUsersLine").textContent = t("siteTotalUsers", state.adminTotalUsers || state.adminUsers.length || 0);
+  $("banSelectedUsersBtn").hidden = !canManageAccounts();
+  $("banSelectedUsersBtn").disabled = state.selectedAdminUserIds.size === 0;
+  renderAdminNotifications();
   $("adminUsersBody").innerHTML = "";
   for (const user of state.adminUsers) {
     const editablePermission = canEditPermission() && String(user.email || "").toLowerCase() !== OWNER_EMAIL;
+    const canSelectUser = canManageAccounts() && !isRootAccount(user.email) && !user.bannedAt;
     const tr = document.createElement("tr");
+    tr.classList.toggle("banned-row", !!user.bannedAt);
     tr.innerHTML = `
+      <td>${adminManageCellHtml(user, canSelectUser)}</td>
       <td class="mono">${escapeHtml(displayAccount(user.email))}</td>
       <td>${escapeHtml(user.name)}</td>
-      <td class="mono recovery-cell">${recoveryHtml(user.recovery)}</td>
       <td class="mono">${escapeHtml(canViewUserPhone() ? (user.phone || "-") : t("passwordEncrypted"))}</td>
       <td>${passwordCellHtml(user)}</td>
       <td>${editablePermission
@@ -2099,11 +2214,24 @@ function renderAdminUsers() {
   document.querySelectorAll(".reset-password-btn").forEach((button) => {
     button.onclick = () => resetUserPassword(button.dataset.userId);
   });
+  document.querySelectorAll(".admin-user-check").forEach((input) => {
+    input.onchange = () => {
+      if (input.checked) {
+        state.selectedAdminUserIds.add(input.dataset.userId);
+      } else {
+        state.selectedAdminUserIds.delete(input.dataset.userId);
+      }
+      renderAdminUsers();
+    };
+  });
+  document.querySelectorAll(".close-admin-notice").forEach((button) => {
+    button.onclick = () => closeAdminNotification(button.dataset.notificationId);
+  });
 }
 
 function passwordCellHtml(user) {
   const digest = user.passwordDigest ? `<small>${escapeHtml(t("passwordDigest"))}: ${escapeHtml(user.passwordDigest)}</small>` : "";
-  const canReset = canEditPermission() && String(user.email || "").toLowerCase() !== OWNER_EMAIL;
+  const canReset = canResetPasswordForUser(user);
   return `
     <div class="password-cell">
       <span>${escapeHtml(t("passwordEncrypted"))}</span>
@@ -2113,12 +2241,78 @@ function passwordCellHtml(user) {
   `;
 }
 
+function adminManageCellHtml(user, canSelectUser) {
+  if (user.bannedAt) {
+    return `<span class="status-pill danger-status">${escapeHtml(t("banned"))}</span>`;
+  }
+  if (!canSelectUser) {
+    return `<span class="status-pill">${escapeHtml(t("activeAccount"))}</span>`;
+  }
+  const checked = state.selectedAdminUserIds.has(user.id) ? " checked" : "";
+  return `
+    <label class="admin-select-cell">
+      <input class="admin-user-check" type="checkbox" data-user-id="${escapeHtml(user.id)}"${checked}>
+      <span>${escapeHtml(t("selectUser"))}</span>
+    </label>
+  `;
+}
+
 function recoveryHtml(recovery) {
   if (!recovery) return `<span class="muted-cell">${escapeHtml(t("recoveryEmpty"))}</span>`;
   return `
     <strong>${escapeHtml(recovery.phone || "-")}</strong>
     <small>${escapeHtml(recovery.accountName || "-")} · ${escapeHtml(formatDateTime(recovery.createdAt))} · ${escapeHtml(recovery.ip || "-")}</small>
   `;
+}
+
+function renderAdminNotifications() {
+  const box = $("adminNotifications");
+  const notifications = canManageAccounts() ? state.adminNotifications : [];
+  box.hidden = notifications.length === 0;
+  box.innerHTML = notifications.map((notice) => `
+    <div class="admin-notice">
+      <span>${escapeHtml(notice.message || t("riskAuthorizeNotice"))}</span>
+      <button class="text-btn close-admin-notice" type="button" data-notification-id="${escapeHtml(notice.id)}">${escapeHtml(t("confirm"))}</button>
+    </div>
+  `).join("");
+}
+
+async function banSelectedAdminUsers() {
+  if (!state.selectedAdminUserIds.size) return toast(t("chooseUsersBan"));
+  const userIds = [...state.selectedAdminUserIds];
+  if (!confirm(t("banUsersConfirm", userIds.length))) return;
+  let secondPassword = "";
+  if (userIds.length > 10) {
+    secondPassword = prompt(t("secondPasswordRequired"), "") || "";
+    if (!secondPassword) return;
+  }
+  try {
+    const result = await api("/api/admin/users/ban", {
+      method: "POST",
+      headers: { "x-admin-token": state.adminToken },
+      body: JSON.stringify({ userIds, secondPassword })
+    });
+    state.selectedAdminUserIds.clear();
+    await loadAdminUsers();
+    renderAdminUsers();
+    toast(t("bannedUsers", result.bannedCount || userIds.length));
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+async function closeAdminNotification(notificationId) {
+  try {
+    await api(`/api/admin/notifications/${notificationId}/close`, {
+      method: "PATCH",
+      headers: { "x-admin-token": state.adminToken }
+    });
+    state.adminNotifications = state.adminNotifications.filter((notice) => notice.id !== notificationId);
+    renderAdminUsers();
+    toast(t("notificationClosed"));
+  } catch (error) {
+    toast(error.message);
+  }
 }
 
 async function updatePermission(userId, permissionLevel) {
@@ -2156,8 +2350,28 @@ async function resetUserPassword(userId) {
     renderAdminUsers();
     toast(t("passwordUpdated"));
   } catch (error) {
+    if (error.message === SECOND_ADMIN_RISK_MESSAGE || error.message === t("riskAuthorizeNotice")) {
+      showSecondAdminRiskNotice();
+    }
     toast(error.message);
   }
+}
+
+function showSecondAdminRiskNotice() {
+  let notice = document.querySelector(".risk-floating-notice");
+  if (!notice) {
+    notice = document.createElement("div");
+    notice.className = "risk-floating-notice";
+    document.body.appendChild(notice);
+  }
+  notice.innerHTML = `
+    <span>${escapeHtml(t("riskAuthorizeNotice"))}</span>
+    <button type="button" aria-label="${escapeHtml(t("cancel"))}">×</button>
+  `;
+  notice.hidden = false;
+  notice.querySelector("button").onclick = () => {
+    notice.hidden = true;
+  };
 }
 
 function escapeHtml(value) {
@@ -2222,6 +2436,7 @@ function iconSvg(name) {
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
     tag: '<path d="M20 12 12 20 4 12V4h8l8 8Z"/><path d="M8 8h.01"/>',
     sparkles: '<path d="m12 3 1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6L12 3Z"/><path d="m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/>',
     logout: '<path d="M10 17 5 12l5-5"/><path d="M5 12h12"/><path d="M14 5h4a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-4"/>'
   };
   return `<svg ${attrs}>${paths[name] || paths.cube}</svg>`;

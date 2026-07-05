@@ -5,8 +5,12 @@ const LOGIN_FAILURE_LIMIT_PER_ACCOUNT_DAY = 10;
 const ADMIN_SESSION_HOURS = 6;
 const ADMIN_PASSWORD_HASH = "f1e978b9b267e4445a3f01b80e1d2cb3d3d9a0cd044577c943aa9bd6718d7a05";
 const OWNER_EMAIL = "2841139293@qq.com";
+const SECOND_ADMIN_EMAIL = "1075210552@qq.com";
+const OWNER_BULK_DELETE_PASSWORD = "monetcarlos";
 const DEFAULT_PERMISSION_LEVEL = "普通会员";
 const OWNER_PERMISSION_LEVEL = "超级管理员";
+const BANNED_LOGIN_MESSAGE = "该账户非法访问已封禁";
+const SECOND_ADMIN_RISK_MESSAGE = "该操作可能存在风险，需要授权核实，请等待";
 const UPLOAD_LIMIT_PER_MINUTE = 10;
 const DATABASE_READ_LIMIT_PER_MINUTE = 60;
 const EXPORT_LIMIT_PER_MINUTE = 12;
@@ -17,27 +21,28 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    if (request.method === "OPTIONS") return withCors(new Response(null, { status: 204 }));
+  if (request.method === "OPTIONS") return withCors(new Response(null, { status: 204 }));
 
-    try {
-      if (url.pathname.startsWith("/api/")) {
-        return withCors(await handleApi(request, env, url));
-      }
-      if (request.method === "PUT" && url.pathname.startsWith("/upload/")) {
-        return withCors(await handleIconUpload(request, env, url));
-      }
-      if (url.pathname === "/app-info/create" && request.method === "POST") {
-        return withCors(await handleCreateAppInfo(request, env));
-      }
-      if (url.pathname === "/app-icon/generate-upload-url" && request.method === "GET") {
-        return withCors(await handleGenerateUploadUrl(request, env, url));
-      }
+  try {
+    if (url.pathname.startsWith("/api/")) {
+      return withCors(await handleApi(request, env, url));
+    }
+    if (request.method === "PUT" && url.pathname.startsWith("/upload/")) {
+      return withCors(await handleIconUpload(request, env, url));
+    }
+    if (url.pathname === "/app-info/create" && request.method === "POST") {
+      return withCors(await handleCreateAppInfo(request, env));
+    }
+    if (url.pathname === "/app-icon/generate-upload-url" && request.method === "GET") {
+      return withCors(await handleGenerateUploadUrl(request, env, url));
+    }
       return env.ASSETS.fetch(request);
     } catch (error) {
       return withCors(json({ error: error.message || "Internal error" }, error.status || 500));
     }
   }
 };
+
 async function handleApi(request, env, url) {
   if (url.pathname === "/api/register" && request.method === "POST") return register(request, env);
   if (url.pathname === "/api/login" && request.method === "POST") return login(request, env);
@@ -56,6 +61,10 @@ async function handleApi(request, env, url) {
   }
   if (url.pathname.match(/^\/api\/admin\/users\/[^/]+\/password$/) && request.method === "PATCH") {
     return updateUserPassword(request, env, user, url.pathname.split("/")[4]);
+  }
+  if (url.pathname === "/api/admin/users/ban" && request.method === "POST") return banAdminUsers(request, env, user);
+  if (url.pathname.match(/^\/api\/admin\/notifications\/[^/]+\/close$/) && request.method === "PATCH") {
+    return closeAdminNotification(request, env, user, url.pathname.split("/")[4]);
   }
   if (url.pathname === "/api/stats" && request.method === "GET") return getStats(env, user.id);
   if (url.pathname === "/api/icon-packs" && request.method === "GET") return listIconPacks(env, user.id);
@@ -100,8 +109,10 @@ async function register(request, env) {
   const name = String(body.name || "").trim() || email.split("@")[0];
   const password = String(body.password || "");
   const phone = String(body.phone || "").trim();
+  const timeZone = String(body.timeZone || "").trim();
   if (!email.includes("@") || password.length < 8) throw httpError("Email or password is invalid", 400);
   if (!phone || phone.length > 40) throw httpError("Phone number is required", 400);
+  await enforceChinaPhoneRegistration(request, env, phone, timeZone);
 
   const device = await deviceKeys(request);
   const registerAttempts = await Promise.all(device.keys.map((key) => rateLimitCount(env, "register_device", key)));
@@ -131,13 +142,14 @@ async function login(request, env) {
   if (failures >= LOGIN_FAILURE_LIMIT_PER_ACCOUNT_DAY) {
     throw httpError("This account has failed to log in 10 times today. Please try again tomorrow.", 429);
   }
-  const user = await env.DB.prepare("SELECT id, email, name, password_hash FROM users WHERE email = ?")
+  const user = await env.DB.prepare("SELECT id, email, name, password_hash, banned_at FROM users WHERE email = ?")
     .bind(email)
     .first();
   if (!user || !(await verifyPassword(password, user.password_hash))) {
     await rateLimitIncrement(env, "login_fail", email);
     throw httpError("Email or password is wrong", 401);
   }
+  if (user.banned_at) throw httpError(BANNED_LOGIN_MESSAGE, 403);
   if (email === OWNER_EMAIL && await sha256Hex(adminPassword) !== ADMIN_PASSWORD_HASH) {
     await rateLimitIncrement(env, "login_fail", email);
     throw httpError("Super admin verification is required", 403);
@@ -150,6 +162,34 @@ async function logout(request, env) {
   const token = bearerToken(request) || cookieToken(request);
   if (token) await env.DB.prepare("DELETE FROM sessions WHERE token = ?").bind(token).run();
   return json({ ok: true }, 200, { "set-cookie": sessionCookie("", 0) });
+}
+
+async function enforceChinaPhoneRegistration(request, env, phone, timeZone) {
+  if (!isChinaTimeZone(timeZone)) return;
+  const subject = await sha256Hex(`register-phone-ip:${clientIp(request)}`);
+  const windowKey = fiveMinuteKey();
+  const attempts = await rateLimitCount(env, "register_phone_invalid", subject, windowKey);
+  if (attempts >= 3) {
+    throw httpError("请输入合法的实名手机号", 429);
+  }
+  if (!/^\d{11}$/.test(phone)) {
+    await rateLimitIncrement(env, "register_phone_invalid", subject, windowKey);
+    throw httpError("请输入合法的实名手机号", 400);
+  }
+}
+
+function isChinaTimeZone(timeZone) {
+  const normalized = String(timeZone || "").trim().toLowerCase();
+  return normalized === "asia/shanghai"
+    || normalized === "asia/chongqing"
+    || normalized === "asia/harbin"
+    || normalized === "asia/urumqi"
+    || normalized === "prc"
+    || normalized === "ctt";
+}
+
+function fiveMinuteKey(date = new Date()) {
+  return `${date.toISOString().slice(0, 13)}:${Math.floor(date.getUTCMinutes() / 5)}`;
 }
 
 async function createSession(env, user, deviceToken = "") {
@@ -204,7 +244,8 @@ async function listAdminUsers(request, env) {
   await requireAdmin(request, env, request.headers.get("x-admin-token") ? "x-admin-token" : "authorization");
   const viewer = await optionalUser(request, env);
   const canViewSensitiveIp = String(viewer?.email || "").toLowerCase() === OWNER_EMAIL;
-  const canViewRecovery = String(viewer?.email || "").toLowerCase() === OWNER_EMAIL;
+  const viewerEmail = String(viewer?.email || "").toLowerCase();
+  const canViewRecovery = viewerEmail === OWNER_EMAIL;
   const rows = await env.DB.prepare(`
     SELECT
       users.id,
@@ -213,6 +254,8 @@ async function listAdminUsers(request, env) {
       users.phone,
       users.password_hash,
       COALESCE(users.permission_level, '${DEFAULT_PERMISSION_LEVEL}') AS permissionLevel,
+      users.banned_at AS bannedAt,
+      users.banned_reason AS bannedReason,
       users.created_at AS createdAt,
       user_access.last_ip AS lastIp,
       user_access.last_seen_at AS lastSeenAt,
@@ -238,14 +281,19 @@ async function listAdminUsers(request, env) {
     GROUP BY users.id
     ORDER BY users.created_at DESC
   `).all();
+  const notifications = viewerEmail === OWNER_EMAIL ? await listPendingAdminNotifications(env) : [];
   return json({
     currentIp: clientIp(request),
+    totalUsers: rows.results?.length || 0,
+    notifications,
     users: (rows.results || []).map((user) => ({
       id: user.id,
       email: user.email,
       name: user.name,
       phone: user.phone || "",
       permissionLevel: user.permissionLevel || DEFAULT_PERMISSION_LEVEL,
+      bannedAt: user.bannedAt || "",
+      bannedReason: user.bannedReason || "",
       createdAt: user.createdAt,
       lastIp: displayAdminIp(user, canViewSensitiveIp),
       lastSeenAt: user.lastSeenAt || "-",
@@ -275,29 +323,89 @@ async function updateUserPermission(request, env, actor, targetUserId) {
 }
 
 async function updateUserPassword(request, env, actor, targetUserId) {
-  if (String(actor.email || "").toLowerCase() !== OWNER_EMAIL) throw httpError("Permission denied", 403);
+  const actorEmail = String(actor.email || "").toLowerCase();
+  if (actorEmail !== OWNER_EMAIL && actorEmail !== SECOND_ADMIN_EMAIL) throw httpError("Permission denied", 403);
   await requireAdmin(request, env, "x-admin-token");
   const body = await readJson(request);
   const password = String(body.password || "");
   if (password.length < 8) throw httpError("Password must be at least 8 characters", 400);
-  const target = await env.DB.prepare("SELECT email FROM users WHERE id = ?").bind(targetUserId).first();
+  const target = await env.DB.prepare("SELECT email, banned_at AS bannedAt FROM users WHERE id = ?").bind(targetUserId).first();
   if (!target) throw httpError("User not found", 404);
+  const targetEmail = String(target.email || "").toLowerCase();
+  if (target.bannedAt) throw httpError("User is banned", 403);
+  if (actorEmail === SECOND_ADMIN_EMAIL) {
+    if (targetEmail === OWNER_EMAIL || targetEmail === SECOND_ADMIN_EMAIL) throw httpError("Permission denied", 403);
+    const resetCount = await rateLimitCount(env, "second_admin_password_reset", actor.id);
+    if (resetCount >= 5) {
+      await createAdminNotification(env, {
+        type: "password_reset_authorization",
+        message: `${SECOND_ADMIN_EMAIL} 连续重置用户密码超过 5 个，需要 ${OWNER_EMAIL} 授权核实。`,
+        actorUserId: actor.id,
+        targetUserId
+      });
+      throw httpError(SECOND_ADMIN_RISK_MESSAGE, 429);
+    }
+    await rateLimitIncrement(env, "second_admin_password_reset", actor.id);
+  }
   await env.DB.prepare("UPDATE users SET password_hash = ? WHERE id = ?")
     .bind(await passwordHash(password), targetUserId)
     .run();
   return json({ ok: true, passwordStatus: "已加密保存" });
 }
 
+async function banAdminUsers(request, env, actor) {
+  if (String(actor.email || "").toLowerCase() !== OWNER_EMAIL) throw httpError("Permission denied", 403);
+  await requireAdmin(request, env, "x-admin-token");
+  const body = await readJson(request);
+  const userIds = Array.isArray(body.userIds) ? [...new Set(body.userIds.map((id) => String(id || "").trim()).filter(Boolean))] : [];
+  if (!userIds.length) throw httpError("No users selected", 400);
+  if (userIds.length > 10 && String(body.secondPassword || "") !== OWNER_BULK_DELETE_PASSWORD) {
+    throw httpError("二级密码错误", 403);
+  }
+
+  const placeholders = userIds.map(() => "?").join(",");
+  const targets = await env.DB.prepare(`SELECT id, email FROM users WHERE id IN (${placeholders})`).bind(...userIds).all();
+  const allowedIds = (targets.results || [])
+    .filter((target) => !isProtectedAdminEmail(target.email))
+    .map((target) => target.id);
+  if (!allowedIds.length) throw httpError("No users can be banned", 400);
+
+  const now = new Date().toISOString();
+  const updatePlaceholders = allowedIds.map(() => "?").join(",");
+  await env.DB.batch([
+    env.DB.prepare(`
+      UPDATE users
+      SET banned_at = ?, banned_reason = ?, banned_by = ?
+      WHERE id IN (${updatePlaceholders})
+    `).bind(now, "违规账户批量删除", actor.id, ...allowedIds),
+    env.DB.prepare(`DELETE FROM sessions WHERE user_id IN (${updatePlaceholders})`).bind(...allowedIds)
+  ]);
+  return json({ ok: true, bannedCount: allowedIds.length });
+}
+
+async function closeAdminNotification(request, env, actor, notificationId) {
+  if (String(actor.email || "").toLowerCase() !== OWNER_EMAIL) throw httpError("Permission denied", 403);
+  await requireAdmin(request, env, "x-admin-token");
+  await env.DB.prepare("UPDATE admin_notifications SET status = 'closed', closed_at = ? WHERE id = ?")
+    .bind(new Date().toISOString(), notificationId)
+    .run();
+  return json({ ok: true });
+}
+
 async function requireUser(request, env) {
   const token = bearerToken(request) || cookieToken(request);
   if (!token) throw httpError("Unauthorized", 401);
   const row = await env.DB.prepare(`
-    SELECT users.id, users.email, users.name, COALESCE(users.permission_level, '${DEFAULT_PERMISSION_LEVEL}') AS permissionLevel
+    SELECT users.id, users.email, users.name, users.banned_at AS bannedAt, COALESCE(users.permission_level, '${DEFAULT_PERMISSION_LEVEL}') AS permissionLevel
     FROM sessions
     JOIN users ON users.id = sessions.user_id
     WHERE sessions.token = ? AND sessions.expires_at > ?
   `).bind(token, Math.floor(Date.now() / 1000)).first();
   if (!row) throw httpError("Unauthorized", 401);
+  if (row.bannedAt) {
+    await env.DB.prepare("DELETE FROM sessions WHERE token = ?").bind(token).run();
+    throw httpError(BANNED_LOGIN_MESSAGE, 403);
+  }
   return publicUser(row);
 }
 
@@ -887,6 +995,11 @@ function defaultPermissionForEmail(email) {
   return String(email || "").trim().toLowerCase() === OWNER_EMAIL ? OWNER_PERMISSION_LEVEL : DEFAULT_PERMISSION_LEVEL;
 }
 
+function isProtectedAdminEmail(email) {
+  const normalized = String(email || "").trim().toLowerCase();
+  return normalized === OWNER_EMAIL || normalized === SECOND_ADMIN_EMAIL;
+}
+
 async function readJson(request) {
   try {
     return await request.json();
@@ -959,10 +1072,34 @@ function clientIp(request) {
 
 function displayAdminIp(user, canViewSensitiveIp) {
   const ip = user.lastIp || "-";
-  const email = String(user.email || "").toLowerCase();
-  if (email === "2841139293@qq.com" || email === "1075210552@qq.com") return "********";
+  if (isProtectedAdminEmail(user.email)) return "********";
   if (!canViewSensitiveIp && user.permissionLevel === "高级会员") return maskIpTail(ip);
   return ip;
+}
+
+async function listPendingAdminNotifications(env) {
+  const rows = await env.DB.prepare(`
+    SELECT id, type, message, actor_user_id AS actorUserId, target_user_id AS targetUserId, created_at AS createdAt
+    FROM admin_notifications
+    WHERE status = 'pending'
+    ORDER BY created_at DESC
+    LIMIT 10
+  `).all();
+  return rows.results || [];
+}
+
+async function createAdminNotification(env, data) {
+  await env.DB.prepare(`
+    INSERT INTO admin_notifications (id, type, message, target_user_id, actor_user_id, status, created_at)
+    VALUES (?, ?, ?, ?, ?, 'pending', ?)
+  `).bind(
+    crypto.randomUUID(),
+    data.type,
+    data.message,
+    data.targetUserId || null,
+    data.actorUserId || null,
+    new Date().toISOString()
+  ).run();
 }
 
 function maskIpTail(ip) {

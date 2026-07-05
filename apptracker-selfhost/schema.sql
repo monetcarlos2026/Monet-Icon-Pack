@@ -5,6 +5,9 @@ CREATE TABLE IF NOT EXISTS users (
   phone TEXT,
   password_hash TEXT NOT NULL,
   permission_level TEXT NOT NULL DEFAULT '普通会员',
+  banned_at TEXT,
+  banned_reason TEXT,
+  banned_by TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -95,9 +98,23 @@ CREATE TABLE IF NOT EXISTS password_recovery_requests (
   FOREIGN KEY (matched_user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS admin_notifications (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  message TEXT NOT NULL,
+  target_user_id TEXT,
+  actor_user_id TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  closed_at TEXT,
+  FOREIGN KEY (target_user_id) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_versions_icon_pack ON versions(icon_pack_id);
 CREATE INDEX IF NOT EXISTS idx_tokens_hash ON access_tokens(token_hash);
 CREATE INDEX IF NOT EXISTS idx_requests_version ON app_requests(version_id, adapted, request_count DESC);
 CREATE INDEX IF NOT EXISTS idx_auth_rate_limits_kind_subject ON auth_rate_limits(kind, subject, day);
 CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires ON admin_sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_recovery_matched_user ON password_recovery_requests(matched_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_admin_notifications_status ON admin_notifications(status, created_at DESC);
