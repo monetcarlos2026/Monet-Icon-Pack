@@ -1485,6 +1485,10 @@ button:disabled {
     min-width: 0;
     overflow-x: hidden;
   }
+  body.is-public-home {
+    min-width: 0;
+    overflow-x: hidden;
+  }
   body.is-authenticated .sidebar {
     width: 100%;
     height: auto;
@@ -1542,77 +1546,97 @@ button:disabled {
   .version-create { width: 100%; }
   .pack-actions { opacity: 1; }
   .stat-grid { grid-template-columns: 1fr; }
+  body.is-public-home .home-page,
   body.is-authenticated .home-page,
   body.is-authenticated .upload-page {
     margin: 0 -16px -32px;
     min-height: auto;
   }
+  body.is-public-home .home-header,
   body.is-authenticated .home-header {
     min-height: 62px;
     padding: 0 14px;
   }
+  body.is-public-home .home-brand,
   body.is-authenticated .home-brand {
     gap: 10px;
     font-size: 20px;
   }
+  body.is-public-home .home-logo,
   body.is-authenticated .home-logo {
     width: 32px;
     height: 32px;
   }
+  body.is-public-home .home-actions,
   body.is-authenticated .home-actions {
     gap: 8px;
   }
+  body.is-public-home .header-action,
   body.is-authenticated .header-action {
     font-size: 16px;
     gap: 6px;
   }
+  body.is-public-home .home-avatar,
   body.is-authenticated .circle-action,
   body.is-authenticated .home-avatar {
     width: 40px;
     height: 40px;
   }
+  body.is-public-home .home-avatar,
   body.is-authenticated .home-avatar {
     font-size: 20px;
   }
+  body.is-public-home .database-shell,
   body.is-authenticated .database-shell,
   body.is-authenticated .upload-shell {
     width: calc(100% - 28px);
     margin: 22px auto;
   }
+  body.is-public-home .database-tools,
   body.is-authenticated .database-tools {
     gap: 16px;
     padding-bottom: 14px;
   }
+  body.is-public-home .database-search,
   body.is-authenticated .database-search {
     grid-template-columns: 1fr;
   }
+  body.is-public-home .database-search input,
+  body.is-public-home .database-search button,
   body.is-authenticated .database-search input,
   body.is-authenticated .database-search button {
     height: 50px;
     font-size: 16px;
   }
+  body.is-public-home .database-filter-row,
   body.is-authenticated .database-filter-row {
     justify-content: stretch;
     overflow-x: auto;
     padding-bottom: 2px;
   }
+  body.is-public-home .segment-tabs,
   body.is-authenticated .segment-tabs {
     flex: 1 0 auto;
   }
+  body.is-public-home .segment-tab,
   body.is-authenticated .segment-tab {
     min-width: 88px;
     min-height: 46px;
     font-size: 14px;
     padding: 8px 10px;
   }
+  body.is-public-home .segment-arrow,
   body.is-authenticated .segment-arrow {
     min-width: 46px;
   }
+  body.is-public-home .sort-button,
   body.is-authenticated .sort-button {
     min-width: 92px;
     min-height: 46px;
     font-size: 14px;
   }
+  body.is-public-home .database-layout,
+  body.is-public-home .database-layout.has-detail,
   body.is-authenticated .database-layout,
   body.is-authenticated .database-layout.has-detail {
     display: grid;
@@ -1620,40 +1644,49 @@ button:disabled {
     gap: 14px;
     padding-top: 14px;
   }
+  body.is-public-home .database-card,
   body.is-authenticated .database-card {
     min-height: 86px;
     grid-template-columns: 22px 48px 1fr;
     gap: 12px;
     padding: 14px 12px;
   }
+  body.is-public-home .database-check,
   body.is-authenticated .database-check {
     width: 20px;
     height: 20px;
   }
+  body.is-public-home .database-avatar.small,
   body.is-authenticated .database-avatar.small {
     width: 48px;
     height: 48px;
     border-radius: 12px;
     font-size: 22px;
   }
+  body.is-public-home .database-main,
   body.is-authenticated .database-main {
     grid-template-columns: 1fr;
     gap: 6px;
   }
+  body.is-public-home .database-main strong,
   body.is-authenticated .database-main strong {
     font-size: 18px;
   }
+  body.is-public-home .database-meta,
   body.is-authenticated .database-meta {
     font-size: 12px;
     text-align: left;
   }
+  body.is-public-home .database-detail,
   body.is-authenticated .database-detail {
     position: static;
     padding: 22px 18px;
   }
+  body.is-public-home .detail-head h2,
   body.is-authenticated .detail-head h2 {
     font-size: 22px;
   }
+  body.is-public-home .database-avatar.large,
   body.is-authenticated .database-avatar.large {
     width: 86px;
     height: 86px;
@@ -1707,22 +1740,28 @@ button:disabled {
   body.is-authenticated .topbar {
     gap: 12px;
   }
+  body.is-public-home .database-filter-row,
   body.is-authenticated .database-filter-row {
     flex-direction: column;
   }
+  body.is-public-home .segment-tabs,
+  body.is-public-home .sort-button,
   body.is-authenticated .segment-tabs,
   body.is-authenticated .sort-button {
     width: 100%;
   }
+  body.is-public-home .segment-tab,
   body.is-authenticated .segment-tab {
     min-width: 0;
     flex: 1 1 0;
   }
+  body.is-public-home .home-brand strong,
   body.is-authenticated .home-brand strong {
     max-width: 150px;
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  body.is-public-home .header-action span:last-child,
   body.is-authenticated .header-action span:last-child {
     display: none;
   }
