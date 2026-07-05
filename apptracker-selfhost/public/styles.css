@@ -1204,6 +1204,7 @@ pre {
   background: transparent;
   color: var(--text);
   text-align: left;
+  font-weight: 800;
 }
 
 a.nav-action {
@@ -1644,6 +1645,12 @@ td.mono {
   width: 18px;
   height: 18px;
   color: var(--muted);
+}
+
+.plain-menu-item {
+  justify-content: flex-start;
+  font-weight: 900;
+  font-size: 15px;
 }
 
 .split-action span + span,

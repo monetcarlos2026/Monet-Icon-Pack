@@ -1675,14 +1675,8 @@ function renderDatabaseCopyMenu() {
   }
   menu.hidden = !state.databaseCopyMenuOpen;
   menu.innerHTML = `
-    <button class="row-menu-item" type="button" data-copy-mode="plain">
-      <span class="nav-icon">${iconSvg("copy")}</span>
-      <span>${escapeHtml(t("plainText"))}</span>
-    </button>
-    <button class="row-menu-item" type="button" data-copy-mode="custom">
-      <span class="nav-icon">${iconSvg("copy")}</span>
-      <span>${escapeHtml(t("custom"))}</span>
-    </button>
+    <button class="row-menu-item plain-menu-item" type="button" data-copy-mode="plain">${escapeHtml(t("plainText"))}</button>
+    <button class="row-menu-item plain-menu-item" type="button" data-copy-mode="custom">${escapeHtml(t("custom"))}</button>
   `;
   menu.querySelector('[data-copy-mode="plain"]').onclick = (event) => {
     event.stopPropagation();

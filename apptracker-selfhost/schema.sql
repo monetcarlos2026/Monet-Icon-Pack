@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS app_requests (
   category TEXT DEFAULT '无分类',
   icon_uploaded INTEGER NOT NULL DEFAULT 0,
   icon_data_url TEXT,
+  icon_updated_at TEXT,
   first_requested_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   last_requested_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(version_id, package_name, main_activity),

@@ -614,8 +614,10 @@ async function listDatabase(request, env, userId, params) {
         MAX(app_requests.icon_uploaded) OVER (
           PARTITION BY app_requests.package_name, app_requests.main_activity
         ) AS grouped_icon_uploaded,
-        MAX(app_requests.icon_data_url) OVER (
+        FIRST_VALUE(app_requests.icon_data_url) OVER (
           PARTITION BY app_requests.package_name, app_requests.main_activity
+          ORDER BY CASE WHEN app_requests.icon_data_url IS NULL OR app_requests.icon_data_url = '' THEN 1 ELSE 0 END,
+            COALESCE(app_requests.icon_updated_at, app_requests.last_requested_at, app_requests.first_requested_at) DESC
         ) AS grouped_icon_data_url
       FROM app_requests
       JOIN versions ON versions.id = app_requests.version_id
@@ -785,26 +787,27 @@ async function handleIconUpload(request, env, url) {
     const expectedSig = await uploadSignature(versionId, packageName, mainActivity);
     if (sig !== expectedSig) throw httpError("Icon upload signature is invalid", 401);
     const dataUrl = iconDataUrl(bytes, request.headers.get("content-type") || "image/png");
+    const now = new Date().toISOString();
     const result = mainActivity
-      ? await env.DB.prepare("UPDATE app_requests SET icon_uploaded = 1, icon_data_url = ? WHERE package_name = ? AND main_activity = ? AND (icon_data_url IS NULL OR icon_data_url = '')")
-        .bind(dataUrl, packageName, mainActivity)
+      ? await env.DB.prepare("UPDATE app_requests SET icon_uploaded = 1, icon_data_url = ?, icon_updated_at = ? WHERE package_name = ? AND main_activity = ?")
+        .bind(dataUrl, now, packageName, mainActivity)
         .run()
-      : await env.DB.prepare("UPDATE app_requests SET icon_uploaded = 1, icon_data_url = ? WHERE package_name = ? AND (icon_data_url IS NULL OR icon_data_url = '')")
-        .bind(dataUrl, packageName)
+      : await env.DB.prepare("UPDATE app_requests SET icon_uploaded = 1, icon_data_url = ?, icon_updated_at = ? WHERE package_name = ?")
+        .bind(dataUrl, now, packageName)
         .run();
     if (!result.meta?.changes && mainActivity) {
-      await env.DB.prepare("UPDATE app_requests SET icon_uploaded = 1 WHERE package_name = ? AND main_activity = ?")
-        .bind(packageName, mainActivity)
+      await env.DB.prepare("UPDATE app_requests SET icon_uploaded = 1, icon_updated_at = ? WHERE package_name = ? AND main_activity = ?")
+        .bind(now, packageName, mainActivity)
         .run();
     } else if (!result.meta?.changes) {
-      await env.DB.prepare("UPDATE app_requests SET icon_uploaded = 1 WHERE package_name = ?")
-        .bind(packageName)
+      await env.DB.prepare("UPDATE app_requests SET icon_uploaded = 1, icon_updated_at = ? WHERE package_name = ?")
+        .bind(now, packageName)
         .run();
     }
     return json({ ok: true, updated: result.meta?.changes || 0 });
   }
 
-  await env.DB.prepare("UPDATE app_requests SET icon_uploaded = 1 WHERE package_name = ?").bind(packageName).run();
+  await env.DB.prepare("UPDATE app_requests SET icon_uploaded = 1, icon_updated_at = ? WHERE package_name = ?").bind(new Date().toISOString(), packageName).run();
   return new Response("", { status: 200 });
 }
 
