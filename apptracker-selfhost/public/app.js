@@ -372,6 +372,8 @@ function applyLanguage() {
   $("createPackBtn").querySelector("span:last-child").textContent = t("createPack");
   $("homeBtn").querySelector("span:last-child").textContent = t("home");
   $("themeLabel").textContent = t("theme");
+  $("homeThemeBtn").title = t("theme");
+  $("uploadThemeBtn").title = t("theme");
   $("languageLabel").textContent = t("language");
   $("logoutBtn").title = t("logout");
   $("refreshBtn").textContent = t("refresh");
@@ -440,6 +442,8 @@ function setHeaders(selector, labels) {
 
 function bindEvents() {
   $("themeBtn").onclick = toggleTheme;
+  $("homeThemeBtn").onclick = toggleTheme;
+  $("uploadThemeBtn").onclick = toggleTheme;
 
   $("languageBtn").onclick = () => {
     state.lang = state.lang === "zh" ? "en" : "zh";
@@ -698,9 +702,12 @@ function bindEvents() {
 function applyTheme() {
   document.documentElement.dataset.theme = state.theme;
   $("themeLabel").textContent = t("theme");
-  const icon = $("themeBtn").querySelector(".nav-icon");
-  icon.dataset.icon = state.theme === "dark" ? "moon" : "sun";
-  icon.innerHTML = iconSvg(icon.dataset.icon);
+  const iconName = state.theme === "dark" ? "moon" : "sun";
+  ["themeBtn", "homeThemeBtn", "uploadThemeBtn"].forEach((id) => {
+    const icon = $(id).querySelector(".nav-icon");
+    icon.dataset.icon = iconName;
+    icon.innerHTML = iconSvg(iconName);
+  });
 }
 
 function toggleTheme() {

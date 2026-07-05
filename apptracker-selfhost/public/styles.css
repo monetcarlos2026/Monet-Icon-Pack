@@ -315,13 +315,17 @@ main {
 }
 
 .header-action,
+.header-theme-btn,
 .circle-action {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
   background: transparent;
   color: var(--text);
   padding: 8px;
+}
+
+.header-action {
+  gap: 10px;
 }
 
 .header-action {
@@ -329,14 +333,26 @@ main {
 }
 
 .circle-action,
+.header-theme-btn,
 .home-avatar {
   width: 52px;
   height: 52px;
   border-radius: 999px;
 }
 
+.header-theme-btn,
 .circle-action {
   justify-content: center;
+}
+
+.header-theme-btn {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.header-theme-btn:hover {
+  background: var(--soft);
 }
 
 .home-avatar {
@@ -1589,7 +1605,9 @@ button:disabled {
     gap: 6px;
   }
   body.is-public-home .home-avatar,
+  body.is-public-home .header-theme-btn,
   body.is-authenticated .circle-action,
+  body.is-authenticated .header-theme-btn,
   body.is-authenticated .home-avatar {
     width: 40px;
     height: 40px;
