@@ -4,30 +4,34 @@ const REGISTER_LIMIT_PER_DEVICE_DAY = 3;
 const LOGIN_FAILURE_LIMIT_PER_ACCOUNT_DAY = 10;
 const ADMIN_SESSION_HOURS = 6;
 const ADMIN_PASSWORD_HASH = "f1e978b9b267e4445a3f01b80e1d2cb3d3d9a0cd044577c943aa9bd6718d7a05";
+const OWNER_EMAIL = "2841139293@qq.com";
+const DEFAULT_PERMISSION_LEVEL = "普通会员";
+const UPLOAD_LIMIT_PER_MINUTE = 10;
+const UPLOAD_MAX_BYTES = 8 * 1024 * 1024;
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    if (request.method === "OPTIONS") return withCors(new Response(null, { status: 204 }));
+  if (request.method === "OPTIONS") return withCors(new Response(null, { status: 204 }));
 
-    try {
-      if (url.pathname.startsWith("/api/")) {
-        return withCors(await handleApi(request, env, url));
-      }
-      if (request.method === "PUT" && url.pathname.startsWith("/upload/")) {
-        return withCors(await handleIconUpload(request, env, url));
-      }
-      if (url.pathname === "/app-info/create" && request.method === "POST") {
-        return withCors(await handleCreateAppInfo(request, env));
-      }
-      if (url.pathname === "/app-icon/generate-upload-url" && request.method === "GET") {
-        return withCors(await handleGenerateUploadUrl(request, env, url));
-      }
-      return env.ASSETS.fetch(request);
-    } catch (error) {
-      return withCors(json({ error: error.message || "Internal error" }, error.status || 500));
+  try {
+    if (url.pathname.startsWith("/api/")) {
+      return withCors(await handleApi(request, env, url));
     }
+    if (request.method === "PUT" && url.pathname.startsWith("/upload/")) {
+      return withCors(await handleIconUpload(request, env, url));
+    }
+    if (url.pathname === "/app-info/create" && request.method === "POST") {
+      return withCors(await handleCreateAppInfo(request, env));
+    }
+    if (url.pathname === "/app-icon/generate-upload-url" && request.method === "GET") {
+      return withCors(await handleGenerateUploadUrl(request, env, url));
+    }
+    return env.ASSETS.fetch(request);
+  } catch (error) {
+    return withCors(json({ error: error.message || "Internal error" }, error.status || 500));
+  }
   }
 };
 
@@ -41,6 +45,11 @@ async function handleApi(request, env, url) {
   const user = await requireUser(request, env);
 
   if (url.pathname === "/api/me" && request.method === "GET") return json({ user });
+  if (url.pathname === "/api/database" && request.method === "GET") return listDatabase(env, user.id, url.searchParams);
+  if (url.pathname === "/api/upload-app-info" && request.method === "POST") return uploadAppInfo(request, env, user);
+  if (url.pathname.match(/^\/api\/admin\/users\/[^/]+\/permission$/) && request.method === "PATCH") {
+    return updateUserPermission(request, env, user, url.pathname.split("/")[4]);
+  }
   if (url.pathname === "/api/stats" && request.method === "GET") return getStats(env, user.id);
   if (url.pathname === "/api/icon-packs" && request.method === "GET") return listIconPacks(env, user.id);
   if (url.pathname === "/api/icon-packs" && request.method === "POST") return createIconPack(request, env, user.id);
@@ -90,8 +99,8 @@ async function register(request, env) {
 
   const id = crypto.randomUUID();
   await env.DB.batch([
-    env.DB.prepare("INSERT INTO users (id, email, name, password_hash) VALUES (?, ?, ?, ?)")
-      .bind(id, email, name, await passwordHash(password)),
+    env.DB.prepare("INSERT INTO users (id, email, name, password_hash, permission_level) VALUES (?, ?, ?, ?, ?)")
+      .bind(id, email, name, await passwordHash(password), DEFAULT_PERMISSION_LEVEL),
     ...device.keys.map((key) => rateLimitIncrementStatement(env, "register_device", key))
   ]);
   await recordUserAccess(env, id, request);
@@ -149,12 +158,15 @@ async function adminLogin(request, env) {
 }
 
 async function listAdminUsers(request, env) {
-  await requireAdmin(request, env);
+  await requireAdmin(request, env, request.headers.get("x-admin-token") ? "x-admin-token" : "authorization");
+  const viewer = await optionalUser(request, env);
+  const canViewSensitiveIp = String(viewer?.email || "").toLowerCase() === OWNER_EMAIL;
   const rows = await env.DB.prepare(`
     SELECT
       users.id,
       users.email,
       users.name,
+      COALESCE(users.permission_level, '${DEFAULT_PERMISSION_LEVEL}') AS permissionLevel,
       users.created_at AS createdAt,
       user_access.last_ip AS lastIp,
       user_access.last_seen_at AS lastSeenAt,
@@ -171,8 +183,9 @@ async function listAdminUsers(request, env) {
       id: user.id,
       email: user.email,
       name: user.name,
+      permissionLevel: user.permissionLevel || DEFAULT_PERMISSION_LEVEL,
       createdAt: user.createdAt,
-      lastIp: user.lastIp || "-",
+      lastIp: displayAdminIp(user, canViewSensitiveIp),
       lastSeenAt: user.lastSeenAt || "-",
       iconPackCount: user.iconPackCount || 0,
       passwordStatus: "已加密保存"
@@ -180,11 +193,23 @@ async function listAdminUsers(request, env) {
   });
 }
 
+async function updateUserPermission(request, env, actor, targetUserId) {
+  if (String(actor.email || "").toLowerCase() !== OWNER_EMAIL) throw httpError("Permission denied", 403);
+  await requireAdmin(request, env, "x-admin-token");
+  const body = await readJson(request);
+  const permissionLevel = String(body.permissionLevel || "").trim();
+  if (!permissionLevel || permissionLevel.length > 24) throw httpError("Permission level is invalid", 400);
+  await env.DB.prepare("UPDATE users SET permission_level = ? WHERE id = ?")
+    .bind(permissionLevel, targetUserId)
+    .run();
+  return json({ ok: true, permissionLevel });
+}
+
 async function requireUser(request, env) {
   const token = bearerToken(request) || cookieToken(request);
   if (!token) throw httpError("Unauthorized", 401);
   const row = await env.DB.prepare(`
-    SELECT users.id, users.email, users.name
+    SELECT users.id, users.email, users.name, COALESCE(users.permission_level, '${DEFAULT_PERMISSION_LEVEL}') AS permissionLevel
     FROM sessions
     JOIN users ON users.id = sessions.user_id
     WHERE sessions.token = ? AND sessions.expires_at > ?
@@ -193,13 +218,30 @@ async function requireUser(request, env) {
   return publicUser(row);
 }
 
-async function requireAdmin(request, env) {
-  const token = bearerToken(request);
+async function optionalUser(request, env) {
+  try {
+    return await requireUser(request, env);
+  } catch {
+    return null;
+  }
+}
+
+async function requireAdmin(request, env, headerName = "authorization") {
+  const token = headerName === "authorization" ? bearerToken(request) : (request.headers.get(headerName) || "");
   if (!token) throw httpError("Admin unauthorized", 401);
   const row = await env.DB.prepare("SELECT token FROM admin_sessions WHERE token = ? AND expires_at > ?")
     .bind(token, Math.floor(Date.now() / 1000))
     .first();
   if (!row) throw httpError("Admin unauthorized", 401);
+}
+
+async function hasAdminSession(request, env, headerName = "authorization") {
+  try {
+    await requireAdmin(request, env, headerName);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function listIconPacks(env, userId) {
@@ -426,6 +468,95 @@ async function exportAppfilter(env, userId, versionId) {
   });
 }
 
+async function listDatabase(env, userId, params) {
+  const q = `%${String(params.get("q") || "").trim()}%`;
+  const type = String(params.get("type") || "appfilter").toLowerCase();
+  const sortDirection = params.get("sort") === "asc" ? "ASC" : "DESC";
+  const typeWhere = type === "drawable"
+    ? "AND app_requests.adapted = 1"
+    : type === "iconpack"
+      ? "AND app_requests.system_app = 0"
+      : "";
+  const rows = await env.DB.prepare(`
+    SELECT
+      app_requests.id,
+      app_requests.localized_name AS localizedName,
+      app_requests.default_name AS defaultName,
+      app_requests.package_name AS packageName,
+      app_requests.main_activity AS mainActivity,
+      app_requests.request_count AS requestCount,
+      app_requests.adapted,
+      app_requests.icon_uploaded AS iconUploaded,
+      app_requests.system_app AS systemApp,
+      icon_packs.name AS iconPackName,
+      versions.name AS versionName
+    FROM app_requests
+    JOIN versions ON versions.id = app_requests.version_id
+    JOIN icon_packs ON icon_packs.id = versions.icon_pack_id
+    WHERE icon_packs.user_id = ?
+      AND (
+        app_requests.localized_name LIKE ?
+        OR app_requests.default_name LIKE ?
+        OR app_requests.package_name LIKE ?
+        OR app_requests.main_activity LIKE ?
+        OR icon_packs.name LIKE ?
+      )
+      ${typeWhere}
+    ORDER BY app_requests.request_count ${sortDirection}, app_requests.last_requested_at ${sortDirection}
+    LIMIT 120
+  `).bind(userId, q, q, q, q, q).all();
+  return json({
+    items: (rows.results || []).map((item) => ({
+      ...item,
+      drawable: sanitizeDrawable(item.defaultName || item.localizedName || item.packageName),
+      adapted: !!item.adapted,
+      iconUploaded: !!item.iconUploaded,
+      systemApp: !!item.systemApp
+    }))
+  });
+}
+
+async function uploadAppInfo(request, env, user) {
+  const adminBypass = await hasAdminSession(request, env, "x-admin-token");
+  if (!adminBypass) {
+    const contentLength = Number(request.headers.get("content-length") || "0");
+    if (contentLength > UPLOAD_MAX_BYTES) throw httpError("ZIP 文件不能超过 8 MB", 413);
+    await enforceUploadLimit(request, env, user.id);
+  }
+
+  const form = await request.formData();
+  const file = form.get("file");
+  const versionId = String(form.get("versionId") || "");
+  if (!file || typeof file === "string") throw httpError("请选择 ZIP 文件", 400);
+  if (!file.name.toLowerCase().endsWith(".zip")) throw httpError("Only ZIP files are allowed", 400);
+  if (!adminBypass && file.size > UPLOAD_MAX_BYTES) throw httpError("ZIP 文件不能超过 8 MB", 413);
+  await assertVersionOwner(env, user.id, versionId);
+  await file.arrayBuffer();
+  return json({
+    ok: true,
+    bypassedLimit: adminBypass,
+    message: adminBypass ? "管理员上传已接收" : "上传已接收"
+  });
+}
+
+async function enforceUploadLimit(request, env, userId) {
+  const minute = new Date().toISOString().slice(0, 16);
+  const ip = clientIp(request);
+  const ipKey = await sha256Hex(`upload-ip:${ip}`);
+  const userKey = `upload-user:${userId}`;
+  const [ipCount, userCount] = await Promise.all([
+    rateLimitCount(env, "upload", ipKey, minute),
+    rateLimitCount(env, "upload", userKey, minute)
+  ]);
+  if (ipCount >= UPLOAD_LIMIT_PER_MINUTE || userCount >= UPLOAD_LIMIT_PER_MINUTE) {
+    throw httpError("上传过于频繁，请稍后再试", 429);
+  }
+  await env.DB.batch([
+    rateLimitIncrementStatement(env, "upload", ipKey, minute),
+    rateLimitIncrementStatement(env, "upload", userKey, minute)
+  ]);
+}
+
 async function handleCreateAppInfo(request, env) {
   const tokenInfo = await requireAppToken(request, env);
   const apps = await readJson(request);
@@ -516,7 +647,7 @@ async function assertVersionOwner(env, userId, versionId) {
 }
 
 function publicUser(user) {
-  return { id: user.id, email: user.email, name: user.name };
+  return { id: user.id, email: user.email, name: user.name, permissionLevel: user.permission_level || user.permissionLevel || DEFAULT_PERMISSION_LEVEL };
 }
 
 async function readJson(request) {
@@ -589,6 +720,20 @@ function clientIp(request) {
   return request.headers.get("cf-connecting-ip") || request.headers.get("x-forwarded-for") || "-";
 }
 
+function displayAdminIp(user, canViewSensitiveIp) {
+  const ip = user.lastIp || "-";
+  const email = String(user.email || "").toLowerCase();
+  if (email === "2841139293@qq.com" || email === "1075210552@qq.com") return "********";
+  if (!canViewSensitiveIp && user.permissionLevel === "高级会员") return maskIpTail(ip);
+  return ip;
+}
+
+function maskIpTail(ip) {
+  const value = String(ip || "-");
+  if (value === "-" || !value.includes(".")) return value;
+  return `${value.slice(0, value.lastIndexOf(".") + 1)}*`;
+}
+
 async function deviceKeys(request) {
   const existingToken = cookieValue(request, "device");
   const cookieToken = existingToken || randomToken(24);
@@ -607,8 +752,7 @@ function rateLimitKey(kind, subject, day = todayKey()) {
   return `${kind}:${day}:${subject}`;
 }
 
-async function rateLimitCount(env, kind, subject) {
-  const day = todayKey();
+async function rateLimitCount(env, kind, subject, day = todayKey()) {
   const row = await env.DB.prepare("SELECT count FROM auth_rate_limits WHERE key = ?")
     .bind(rateLimitKey(kind, subject, day))
     .first();
@@ -619,8 +763,7 @@ async function rateLimitIncrement(env, kind, subject) {
   await rateLimitIncrementStatement(env, kind, subject).run();
 }
 
-function rateLimitIncrementStatement(env, kind, subject) {
-  const day = todayKey();
+function rateLimitIncrementStatement(env, kind, subject, day = todayKey()) {
   return env.DB.prepare(`
     INSERT INTO auth_rate_limits (key, kind, subject, day, count, updated_at)
     VALUES (?, ?, ?, ?, 1, ?)
@@ -670,6 +813,6 @@ function withCors(response) {
   const headers = new Headers(response.headers);
   headers.set("access-control-allow-origin", "*");
   headers.set("access-control-allow-methods", "GET,POST,PATCH,DELETE,PUT,OPTIONS");
-  headers.set("access-control-allow-headers", "authorization,content-type");
+  headers.set("access-control-allow-headers", "authorization,content-type,x-admin-token");
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }

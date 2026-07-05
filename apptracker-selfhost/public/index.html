@@ -90,7 +90,7 @@
   </aside>
 
   <main>
-    <header class="topbar">
+    <header id="topbar" class="topbar">
       <button id="sidebarBtn" class="top-icon" type="button" title="侧栏">
         <span class="nav-icon" data-icon="panel"></span>
       </button>
@@ -103,6 +103,108 @@
         <button id="refreshBtn" class="secondary">刷新</button>
       </div>
     </header>
+
+    <section id="databasePage" class="home-page" hidden>
+      <header class="home-header">
+        <button id="homeBrandBtn" class="home-brand" type="button" title="返回首页">
+          <span class="home-logo"><span class="nav-icon" data-icon="cube"></span></span>
+          <strong>AppTracker</strong>
+        </button>
+        <div class="home-actions">
+          <button id="openUploadBtn" class="header-action" type="button">
+            <span class="nav-icon" data-icon="upload"></span>
+            <span>上传</span>
+          </button>
+          <button id="homeThemeBtn" class="circle-action" type="button" title="切换主题">
+            <span class="nav-icon" data-icon="sun"></span>
+          </button>
+          <span id="homeAvatar" class="home-avatar">S</span>
+        </div>
+      </header>
+
+      <div class="database-shell">
+        <div class="database-tools">
+          <div class="database-search">
+            <input id="databaseSearch" type="search" placeholder="输入搜索内容...">
+            <button id="databaseSearchBtn" type="button">
+              <span class="nav-icon" data-icon="search"></span>
+              <span>搜索</span>
+            </button>
+          </div>
+          <div class="database-filter-row">
+            <div class="segment-tabs" role="tablist" aria-label="数据库类型">
+              <button id="filterAppfilterBtn" class="segment-tab active" type="button">Appfilter</button>
+              <button id="filterDrawableBtn" class="segment-tab" type="button">Drawable</button>
+              <button id="filterIconPackBtn" class="segment-tab" type="button">IconPack</button>
+              <button id="filterMoreBtn" class="segment-tab segment-arrow" type="button" title="更多">⌄</button>
+            </div>
+            <button id="databaseSortBtn" class="sort-button" type="button">
+              <span class="nav-icon" data-icon="sort"></span>
+              <span>排序</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="database-layout">
+          <div id="databaseList" class="database-list"></div>
+          <aside id="databaseDetail" class="database-detail" hidden></aside>
+        </div>
+      </div>
+    </section>
+
+    <section id="uploadPage" class="upload-page" hidden>
+      <header class="home-header">
+        <button id="uploadBrandBtn" class="home-brand" type="button" title="返回首页">
+          <span class="home-logo"><span class="nav-icon" data-icon="cube"></span></span>
+          <strong>AppTracker</strong>
+        </button>
+        <div class="home-actions">
+          <button id="uploadTopBtn" class="header-action active" type="button">
+            <span class="nav-icon" data-icon="upload"></span>
+            <span>上传</span>
+          </button>
+          <button id="uploadThemeBtn" class="circle-action" type="button" title="切换主题">
+            <span class="nav-icon" data-icon="sun"></span>
+          </button>
+          <span id="uploadAvatar" class="home-avatar">S</span>
+        </div>
+      </header>
+
+      <div class="upload-shell">
+        <div class="upload-intro">
+          <h2>上传应用信息</h2>
+          <p>上传包含 appfilter.xml 和图标 PNG 的 ZIP 文件，将应用信息添加到数据库。</p>
+        </div>
+        <div class="upload-grid">
+          <article class="upload-card upload-file-card">
+            <h3>选择文件</h3>
+            <p>上传包含 appfilter.xml 文件和 PNG 图标的 ZIP 文件。可以同时上传多个文件。</p>
+            <label id="uploadDropZone" class="drop-zone" for="uploadZipInput">
+              <input id="uploadZipInput" type="file" accept=".zip,application/zip" hidden>
+              <span class="drop-icon"><span class="nav-icon" data-icon="upload"></span></span>
+              <strong id="uploadFileName">将 ZIP 文件拖放到此处</strong>
+              <span id="uploadFileHint">或点击选择文件</span>
+            </label>
+          </article>
+
+          <aside class="upload-card upload-detail-card">
+            <h3>上传详情</h3>
+            <p>已选文件和图标包关联</p>
+            <div class="upload-divider"></div>
+            <label for="uploadPackSelect">图标包（可选）</label>
+            <select id="uploadPackSelect">
+              <option value="">选择图标包</option>
+            </select>
+            <label for="uploadVersionSelect">版本</label>
+            <select id="uploadVersionSelect" disabled>
+              <option value="">请先选择图标包</option>
+            </select>
+            <div class="upload-divider"></div>
+            <button id="submitUploadBtn" class="upload-submit" type="button" disabled>提交</button>
+          </aside>
+        </div>
+      </div>
+    </section>
 
     <section id="statsCard" class="stats-page" hidden>
       <div class="page-intro">
@@ -154,6 +256,7 @@
             <th>账号</th>
             <th>昵称</th>
             <th>密码</th>
+            <th>权限级别</th>
             <th>图标包数</th>
             <th>访问 IP</th>
             <th>最后访问</th>
