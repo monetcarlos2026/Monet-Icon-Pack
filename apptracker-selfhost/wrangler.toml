@@ -1,8 +1,0 @@
-name = "monet-apptracker"
-compatibility_date = "2026-07-04"
-pages_build_output_dir = "public"
-
-[[d1_databases]]
-binding = "DB"
-database_name = "apptracker_selfhost"
-database_id = "abf6a8cc-4be0-443c-a090-1c7ddafabbea"
