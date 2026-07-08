@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Chinese (zh) overrides for the About-page credit descriptions only. The other credit
+  arrays (photos / titles / buttons / links) fall back to res/values/about_setup.xml.
+  Indices must stay aligned with credits_titles: [0]=MonetCarlos, [1]=Xavierrr.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="ExtraTranslation,MissingTranslation">
+    <string-array name="credits_descriptions">
+        <item>主题设计师 &amp; UI设计师 &amp; 前端开发者</item>
+        <item>主题设计师 &amp; UI设计师 &amp; 开发者</item>
+    </string-array>
+</resources>

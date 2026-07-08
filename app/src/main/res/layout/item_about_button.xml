@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Overrides dev.jahir.frames' item_about_button so three credit buttons (e.g. MonetCarlos:
+  Coolapk / Telegram / Github) fit on one row without the last one truncating to "Gi...".
+  Only the About-page buttons inflate this layout, so other buttons in the app are unaffected.
+  Tighter than the Frames default: smaller text, no letter-spacing, slim padding, no insets.
+-->
+<com.google.android.material.button.MaterialButton xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="2dp"
+    android:layout_marginEnd="2dp"
+    android:backgroundTint="@color/text_btn_bg_color"
+    android:elevation="0dp"
+    android:insetLeft="0dp"
+    android:insetRight="0dp"
+    android:insetTop="0dp"
+    android:insetBottom="0dp"
+    android:letterSpacing="0"
+    android:minWidth="0dp"
+    android:paddingStart="8dp"
+    android:paddingEnd="8dp"
+    android:textAllCaps="false"
+    android:textColor="?colorSecondary"
+    android:textSize="13sp"
+    app:elevation="0dp"
+    app:rippleColor="@color/text_btn_ripple_color"
+    tools:text="Github" />

@@ -3,10 +3,8 @@ const SESSION_DAYS = 14;
 const REGISTER_LIMIT_PER_DEVICE_DAY = 3;
 const LOGIN_FAILURE_LIMIT_PER_ACCOUNT_DAY = 10;
 const ADMIN_SESSION_HOURS = 6;
-const ADMIN_PASSWORD_HASH = "f1e978b9b267e4445a3f01b80e1d2cb3d3d9a0cd044577c943aa9bd6718d7a05";
 const OWNER_EMAIL = "2841139293@qq.com";
 const SECOND_ADMIN_EMAIL = "1075210552@qq.com";
-const OWNER_BULK_DELETE_PASSWORD = "monetcarlos";
 const DEFAULT_PERMISSION_LEVEL = "普通会员";
 const OWNER_PERMISSION_LEVEL = "超级管理员";
 const BANNED_LOGIN_MESSAGE = "该账户非法访问已封禁";
@@ -152,7 +150,7 @@ async function login(request, env) {
     throw httpError("Email or password is wrong", 401);
   }
   if (user.banned_at) throw httpError(BANNED_LOGIN_MESSAGE, 403);
-  if (email === OWNER_EMAIL && await sha256Hex(adminPassword) !== ADMIN_PASSWORD_HASH) {
+  if (email === OWNER_EMAIL && !(await verifySecretHash(adminPassword, env, "ADMIN_PASSWORD_HASH"))) {
     await rateLimitIncrement(env, "login_fail", email);
     throw httpError("Super admin verification is required", 403);
   }
@@ -208,8 +206,7 @@ async function createSession(env, user, deviceToken = "") {
 async function adminLogin(request, env) {
   const body = await readJson(request);
   const password = String(body.password || "");
-  const hash = await sha256Hex(password);
-  if (hash !== ADMIN_PASSWORD_HASH) throw httpError("Admin password is wrong", 401);
+  if (!(await verifySecretHash(password, env, "ADMIN_PASSWORD_HASH"))) throw httpError("Admin password is wrong", 401);
 
   const token = randomToken(32);
   const expires = Math.floor(Date.now() / 1000) + ADMIN_SESSION_HOURS * 3600;
@@ -361,7 +358,7 @@ async function banAdminUsers(request, env, actor) {
   const body = await readJson(request);
   const userIds = Array.isArray(body.userIds) ? [...new Set(body.userIds.map((id) => String(id || "").trim()).filter(Boolean))] : [];
   if (!userIds.length) throw httpError("No users selected", 400);
-  if (userIds.length > 10 && String(body.secondPassword || "") !== OWNER_BULK_DELETE_PASSWORD) {
+  if (userIds.length > 10 && !(await verifySecretHash(String(body.secondPassword || ""), env, "OWNER_BULK_DELETE_PASSWORD_HASH"))) {
     throw httpError("二级密码错误", 403);
   }
 
@@ -1074,6 +1071,26 @@ async function passwordHash(password) {
 async function verifyPassword(password, stored) {
   const [salt, hash] = String(stored || "").split(":");
   return !!salt && hash === await sha256Hex(`${salt}:${password}`);
+}
+
+async function verifySecretHash(value, env, name) {
+  const expectedHash = secretHash(env, name);
+  return safeEqual(await sha256Hex(String(value || "")), expectedHash);
+}
+
+function secretHash(env, name) {
+  const hash = String(env?.[name] || "").trim().toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(hash)) throw httpError("Server security secret is not configured", 500);
+  return hash;
+}
+
+function safeEqual(left, right) {
+  if (left.length !== right.length) return false;
+  let mismatch = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    mismatch |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return mismatch === 0;
 }
 
 async function sha256Hex(value) {

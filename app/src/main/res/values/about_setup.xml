@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="ExtraTranslation,MissingTranslation">
+    <string-array name="credits_photos" formatted="false" tools:ignore="TypographyDashes">
+        <item>android.resource://com.monetcarlos2026.iconpack/drawable/about_monet_carlos</item>
+        <item>android.resource://com.monetcarlos2026.iconpack/drawable/about_xavierrr</item>
+    </string-array>
+
+    <string-array name="credits_titles">
+        <item>MonetCarlos</item>
+        <item>Xavierrr</item>
+    </string-array>
+
+    <string-array name="credits_descriptions">
+        <item>Theme Designer &amp; UI Designer &amp; Front-End Developer</item>
+        <item>UI Designer &amp; Developer</item>
+    </string-array>
+
+    <string-array name="credits_buttons">
+        <item>Coolapk|Telegram|Github</item>
+        <item>Coolapk|Github</item>
+    </string-array>
+
+    <string-array name="credits_links">
+        <item>https://www.coolapk.com/u/9021855|https://t.me/monetcarlos2026|https://github.com/monetcarlos2026</item>
+        <item>https://www.coolapk.com/u/3433776|https://github.com/Xavier-nai/</item>
+    </string-array>
+</resources>
